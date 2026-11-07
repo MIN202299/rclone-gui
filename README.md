@@ -18,7 +18,7 @@
 
 <p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
 
-A lightweight native macOS app (SwiftUI, no dependencies) for browsing and managing cloud storage through [rclone](https://rclone.org). It runs your installed `rclone` binary and uses your existing `rclone.conf`, so every remote you already have shows up automatically.
+Built with SwiftUI and no third-party dependencies, it drives [rclone](https://rclone.org) under the hood. It uses your existing `rclone.conf`, so every remote you've already set up shows up automatically.
 
 ## Features
 

@@ -18,7 +18,7 @@
 
 <p align="center"><a href="README.md">English</a> · <b>简体中文</b></p>
 
-一个轻量的 macOS 原生应用（SwiftUI 编写，无第三方依赖），通过 [rclone](https://rclone.org) 浏览和管理云存储。它直接调用你已安装的 `rclone`，读取现有的 `rclone.conf`，所以你配置过的远端都会自动出现。
+使用 SwiftUI 编写，无第三方依赖，底层由 [rclone](https://rclone.org) 驱动。它读取你现有的 `rclone.conf`，所以已经配置过的远端都会自动出现。
 
 ## 功能
 
