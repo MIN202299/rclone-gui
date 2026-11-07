@@ -15,7 +15,29 @@ final class RcloneDaemon {
     private var authHeader = ""
     private var launchedExe: String?
     private var starting: Task<URL, Error>?
-    private static let pidKey = "rcloneDaemonPID"
+    /// Write end of the watchdog's stdin. It closes when this app exits for any reason (quit,
+    /// `kill`, crash), and the watchdog then stops rclone.
+    private var lifeline: FileHandle?
+    /// Marks the rclone processes this app starts, so stale ones can be told apart from the user's own.
+    private static let realm = "rclone-gui"
+
+    /// Runs rclone as a child of a small shell that stops it as soon as its stdin reaches EOF
+    /// (the app is gone) or the shell itself is told to stop. macOS has no "kill me when my
+    /// parent dies" option, and rclone ignores its stdin, so the shell does the watching.
+    private static let watchdog = """
+        exec 3<&0
+        "$0" "$@" </dev/null 3<&- &
+        c=$!
+        { read _ <&3; kill $c 2>/dev/null; } &
+        w=$!
+        exec 3<&-
+        trap 'kill $c 2>/dev/null' TERM INT HUP
+        wait $c
+        s=$?
+        wait $c 2>/dev/null
+        kill $w 2>/dev/null
+        exit $s
+        """
 
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
@@ -38,12 +60,16 @@ final class RcloneDaemon {
 
     private func launch() async throws -> URL {
         guard let exe = Rclone.locate() else { throw RcloneError.notFound }
-        Self.killOrphan()
+        Self.killStale()
         let user = UUID().uuidString, pass = UUID().uuidString
         let p = Process()
-        p.executableURL = URL(fileURLWithPath: exe)
-        p.arguments = ["rcd", "--rc-addr", "127.0.0.1:0", "--rc-user", user, "--rc-pass", pass]
-        p.standardInput = FileHandle.nullDevice
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", Self.watchdog, exe, "rcd", "--rc-addr", "127.0.0.1:0",
+                       "--rc-user", user, "--rc-pass", pass, "--rc-realm", Self.realm]
+        let life = Pipe()
+        // Keep the write end out of other processes the app starts, or they'd hold it open.
+        _ = fcntl(life.fileHandleForWriting.fileDescriptor, F_SETFD, FD_CLOEXEC)
+        p.standardInput = life
         p.standardOutput = FileHandle.nullDevice
         let err = Pipe()
         p.standardError = err
@@ -70,6 +96,7 @@ final class RcloneDaemon {
                 if once.fire() { cont.resume(throwing: DaemonUnavailable(error.localizedDescription)) }
                 return
             }
+            try? life.fileHandleForReading.close() // only the shell needs the read end
             DispatchQueue.global().asyncAfter(deadline: .now() + 15) {
                 if once.fire() {
                     p.terminate()
@@ -78,29 +105,70 @@ final class RcloneDaemon {
             }
         }
 
+        lifeline = life.fileHandleForWriting
         process = p
         baseURL = url
         launchedExe = exe
         authHeader = "Basic " + Data("\(user):\(pass)".utf8).base64EncodedString()
-        UserDefaults.standard.set(Int(p.processIdentifier), forKey: Self.pidKey)
         return url
     }
 
     func stop() {
         if let process, process.isRunning { process.terminate() }
+        try? lifeline?.close()
+        lifeline = nil
         process = nil
         baseURL = nil
-        UserDefaults.standard.removeObject(forKey: Self.pidKey)
     }
 
-    /// If the app crashed last time, its daemon may still be running.
-    private static func killOrphan() {
-        let pid = pid_t(UserDefaults.standard.integer(forKey: pidKey))
-        guard pid > 0, kill(pid, 0) == 0 else { return }
-        var buf = [CChar](repeating: 0, count: Int(MAXPATHLEN))
-        guard proc_pidpath(pid, &buf, UInt32(buf.count)) > 0,
-              (String(cString: buf) as NSString).lastPathComponent == "rclone" else { return }
-        kill(pid, SIGTERM)
+    /// Stops background rclones left behind by earlier runs: ones started with this app's realm
+    /// (or, from older versions, its exact random-credential arguments) whose parent is gone.
+    /// A running copy of the app keeps its daemon under a live parent, so it's left alone, as are
+    /// rclones the user starts themselves.
+    private static func killStale() {
+        UserDefaults.standard.removeObject(forKey: "rcloneDaemonPID") // used by older versions
+        let count = proc_listallpids(nil, 0)
+        guard count > 0 else { return }
+        var pids = [pid_t](repeating: 0, count: Int(count) + 64)
+        let n = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
+        for pid in pids.prefix(Int(max(n, 0))) where pid > 1 {
+            var info = proc_bsdinfo()
+            guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, Int32(MemoryLayout<proc_bsdinfo>.size)) > 0,
+                  info.pbi_ppid == 1, info.pbi_uid == getuid(),
+                  let args = arguments(of: pid), isOurDaemon(args) else { continue }
+            kill(pid, SIGTERM)
+        }
+    }
+
+    private static func isOurDaemon(_ args: [String]) -> Bool {
+        guard args.count >= 2, (args[0] as NSString).lastPathComponent == "rclone", args[1] == "rcd" else { return false }
+        let rest = Array(args.dropFirst())
+        if rest.suffix(2) == ["--rc-realm", realm] { return true }
+        // Versions before the realm marker: rcd --rc-addr 127.0.0.1:0 --rc-user <UUID> --rc-pass <UUID>
+        return rest.count == 7 && rest[1...2] == ["--rc-addr", "127.0.0.1:0"]
+            && rest[3] == "--rc-user" && UUID(uuidString: rest[4]) != nil
+            && rest[5] == "--rc-pass" && UUID(uuidString: rest[6]) != nil
+    }
+
+    /// A process's argv, read via sysctl (only works for the current user's processes).
+    private static func arguments(of pid: pid_t) -> [String]? {
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+        var size = 0
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > MemoryLayout<Int32>.size else { return nil }
+        var buf = [UInt8](repeating: 0, count: size)
+        guard sysctl(&mib, 3, &buf, &size, nil, 0) == 0 else { return nil }
+        let argc = buf.withUnsafeBytes { $0.load(as: Int32.self) }
+        var i = MemoryLayout<Int32>.size
+        while i < size, buf[i] != 0 { i += 1 } // executable path
+        while i < size, buf[i] == 0 { i += 1 } // padding
+        var args: [String] = []
+        while args.count < argc, i < size {
+            let start = i
+            while i < size, buf[i] != 0 { i += 1 }
+            args.append(String(decoding: buf[start..<i], as: UTF8.self))
+            i += 1
+        }
+        return args.count == argc ? args : nil
     }
 
     // MARK: Calls
