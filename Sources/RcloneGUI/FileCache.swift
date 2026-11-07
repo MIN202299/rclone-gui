@@ -1,6 +1,7 @@
 import Foundation
 
-/// On-disk cache for files opened from remotes, at ~/Library/Caches/RcloneGUI/files/<remote>/<path>.
+/// On-disk cache for files opened from remotes, at <root>/<remote>/<path> (default root:
+/// ~/Library/Caches/RcloneGUI/files; or "Rclone Cache" inside a folder the user picks).
 /// Re-opening uses `rclone copyto`, which skips the download when the cached copy still matches
 /// the remote (size + modification time). Least-recently-used files are evicted past the size limit.
 enum FileCache {
@@ -15,9 +16,99 @@ enum FileCache {
         (UserDefaults.standard.object(forKey: limitKey) as? NSNumber)?.int64Value ?? defaultLimit
     }
 
-    static var root: URL {
+    // MARK: Location
+
+    /// UserDefaults key holding the folder the user picked (the parent of the cache folder).
+    static let locationKey = "cacheLocation"
+    /// The cache always lives in its own subfolder of the chosen folder, so clearing or evicting
+    /// can never touch the user's other files.
+    static let folderName = "Rclone Cache"
+
+    static var defaultRoot: URL {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("RcloneGUI/files", isDirectory: true)
+    }
+
+    /// The folder the user picked, if any (may currently be unavailable, e.g. an unplugged drive).
+    static var chosenParent: URL? {
+        guard let path = UserDefaults.standard.string(forKey: locationKey), !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    static func customRoot(in parent: URL) -> URL {
+        parent.appendingPathComponent(folderName, isDirectory: true)
+    }
+
+    /// True when a custom location is set but can't be used right now, so the default is used.
+    static var isUsingFallback: Bool {
+        guard let parent = chosenParent else { return false }
+        return !isUsable(parent)
+    }
+
+    static func isUsable(_ parent: URL) -> Bool {
+        var isDir: ObjCBool = false
+        return FileManager.default.fileExists(atPath: parent.path, isDirectory: &isDir) && isDir.boolValue
+            && FileManager.default.isWritableFile(atPath: parent.path)
+    }
+
+    /// Where cached files live right now.
+    static var root: URL {
+        if let parent = chosenParent, isUsable(parent) { return customRoot(in: parent) }
+        return defaultRoot
+    }
+
+    enum RelocateError: LocalizedError {
+        case notWritable, nested
+        var errorDescription: String? {
+            switch self {
+            case .notWritable: return "That folder can't be written to."
+            case .nested: return "Choose a folder outside the current cache folder."
+            }
+        }
+    }
+
+    /// Switches the cache to `newParent` (nil = default location). With `moveFiles`, cached files are
+    /// moved over (instant on the same disk, copied across disks); otherwise the old cache is deleted.
+    static func relocate(to newParent: URL?, moveFiles: Bool) throws {
+        let fm = FileManager.default
+        // Plain paths: standardizing can drop a "/private" prefix only for paths that exist.
+        let oldRoot = root
+        let newRoot = newParent.map(customRoot(in:)) ?? defaultRoot
+        if let newParent, !isUsable(newParent) { throw RelocateError.notWritable }
+        guard oldRoot.path != newRoot.path else {
+            UserDefaults.standard.set(newParent?.path, forKey: locationKey)
+            return
+        }
+        if newRoot.path.hasPrefix(oldRoot.path + "/") || oldRoot.path.hasPrefix(newRoot.path + "/") {
+            throw RelocateError.nested
+        }
+        try fm.createDirectory(at: newRoot, withIntermediateDirectories: true)
+        if moveFiles, let items = try? fm.contentsOfDirectory(at: oldRoot, includingPropertiesForKeys: nil) {
+            for item in items {
+                let dest = newRoot.appendingPathComponent(item.lastPathComponent)
+                if fm.fileExists(atPath: dest.path) {
+                    try? merge(item, into: dest)
+                } else {
+                    try fm.moveItem(at: item, to: dest)
+                }
+            }
+        }
+        try? fm.removeItem(at: oldRoot)
+        UserDefaults.standard.set(newParent?.path, forKey: locationKey)
+    }
+
+    /// Moves files from `source` into an existing folder `dest`, keeping whatever is already there.
+    private static func merge(_ source: URL, into dest: URL) throws {
+        let fm = FileManager.default
+        for item in try fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil) {
+            let target = dest.appendingPathComponent(item.lastPathComponent)
+            var isDir: ObjCBool = false
+            if fm.fileExists(atPath: target.path, isDirectory: &isDir) {
+                if isDir.boolValue { try merge(item, into: target) }
+            } else {
+                try fm.moveItem(at: item, to: target)
+            }
+        }
     }
 
     /// Cache location for a remote file, or nil if the path would escape the cache folder.

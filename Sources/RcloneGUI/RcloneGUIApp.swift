@@ -96,6 +96,15 @@ struct SettingsView: View {
     @AppStorage(FileCache.limitKey) private var cacheLimit = Int(FileCache.defaultLimit)
     @State private var cacheUsage: Int64?
     @State private var confirmClear = false
+    @State private var pendingLocation: PendingLocation?
+    @State private var relocating = false
+    @State private var locationError: String?
+    @State private var locationTick = 0 // forces the location row to re-read FileCache.root
+
+    private struct PendingLocation: Identifiable {
+        let id = UUID()
+        let parent: URL? // nil = default location
+    }
 
     var body: some View {
         Form {
@@ -140,19 +149,43 @@ struct SettingsView: View {
                         ProgressView().controlSize(.small)
                     }
                 }
+                LabeledContent("Location") {
+                    let _ = locationTick
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(Self.displayPath(FileCache.root))
+                            .lineLimit(1).truncationMode(.middle)
+                            .help(FileCache.root.path)
+                        if FileCache.isUsingFallback, let chosen = FileCache.chosenParent {
+                            Text("“\(Self.displayPath(chosen))” isn't available, so the default location is used for now.")
+                                .font(.caption).foregroundStyle(.orange)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        if let locationError {
+                            Text(locationError).font(.caption).foregroundStyle(.red)
+                        }
+                    }
+                }
                 HStack {
+                    Button("Change…") { chooseLocation() }
+                    Button("Use Default") { requestLocation(nil) }
+                        .disabled(FileCache.chosenParent == nil)
                     Button("Show in Finder") {
                         try? FileManager.default.createDirectory(at: FileCache.root, withIntermediateDirectories: true)
                         NSWorkspace.shared.activateFileViewerSelecting([FileCache.root])
                     }
                     Spacer()
-                    Button("Clear Cache…", role: .destructive) { confirmClear = true }
-                        .disabled(cacheUsage == 0)
+                    if relocating {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("Clear Cache…", role: .destructive) { confirmClear = true }
+                            .disabled(cacheUsage == 0)
+                    }
                 }
+                .disabled(relocating)
             } header: {
                 Text("File Cache")
             } footer: {
-                Text("Files you open are kept here, so opening them again is instant unless they changed on the remote. When the cache is full, the least recently opened files are removed. Edits to cached copies are not uploaded.")
+                Text("Files you open are kept here, so opening them again is instant unless they changed on the remote. When the cache is full, the least recently opened files are removed. A custom location gets its own “\(FileCache.folderName)” folder. Edits to cached copies are not uploaded.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -167,6 +200,14 @@ struct SettingsView: View {
             }
         }
         .task { await refreshUsage() }
+        .confirmationDialog("Move cached files to the new location?",
+                            isPresented: Binding(get: { pendingLocation != nil }, set: { if !$0 { pendingLocation = nil } }),
+                            presenting: pendingLocation) { pending in
+            Button("Move Files") { relocate(pending.parent, moveFiles: true) }
+            Button("Start Empty", role: .destructive) { relocate(pending.parent, moveFiles: false) }
+        } message: { _ in
+            Text("Moving keeps files you've already opened available instantly. Starting empty deletes the current cache (your files on the remotes are not affected).")
+        }
         .confirmationDialog("Clear the file cache?", isPresented: $confirmClear) {
             Button("Clear Cache", role: .destructive) {
                 Task {
@@ -177,6 +218,50 @@ struct SettingsView: View {
             }
         } message: {
             Text("Cached copies of opened files will be deleted. Your files on the remotes are not affected.")
+        }
+    }
+
+    private static func displayPath(_ url: URL) -> String {
+        let home = NSHomeDirectory()
+        return url.path.hasPrefix(home) ? "~" + url.path.dropFirst(home.count) : url.path
+    }
+
+    private func chooseLocation() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Use This Folder"
+        panel.message = "Choose where to keep cached files. A “\(FileCache.folderName)” folder will be created inside it."
+        panel.directoryURL = FileCache.chosenParent
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        requestLocation(url)
+    }
+
+    /// Asks whether to move existing files, unless the cache is empty.
+    private func requestLocation(_ parent: URL?) {
+        locationError = nil
+        if (cacheUsage ?? 0) == 0 {
+            relocate(parent, moveFiles: false)
+        } else {
+            pendingLocation = PendingLocation(parent: parent)
+        }
+    }
+
+    private func relocate(_ parent: URL?, moveFiles: Bool) {
+        relocating = true
+        Task {
+            do {
+                try await Task.detached(priority: .userInitiated) {
+                    try FileCache.relocate(to: parent, moveFiles: moveFiles)
+                }.value
+            } catch {
+                locationError = error.localizedDescription
+            }
+            relocating = false
+            locationTick += 1
+            await refreshUsage()
+            model.refreshCacheStatus()
         }
     }
 
