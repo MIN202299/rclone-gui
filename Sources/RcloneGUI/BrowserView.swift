@@ -105,8 +105,15 @@ struct BrowserView: View {
             }
             .width(min: 200, ideal: 360)
             TableColumn("Size", value: \.sortSize) { entry in
-                Text(entry.sizeText)
-                    .help(entry.isDir || entry.size >= 0 ? "" : "Size unknown — Google Docs, Sheets and Slides have no fixed size until exported")
+                Group {
+                    if entry.size < 0, !entry.isDir, let exported = model.cachedSizes[entry.id] {
+                        Text(exported.byteString)
+                            .help("Size of the exported copy cached on this Mac. Google Docs, Sheets and Slides have no fixed size on Drive.")
+                    } else {
+                        Text(entry.sizeText)
+                            .help(entry.isDir || entry.size >= 0 ? "" : "Size unknown until opened — Google Docs, Sheets and Slides have no fixed size on Drive")
+                    }
+                }
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }

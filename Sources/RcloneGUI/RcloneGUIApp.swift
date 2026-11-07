@@ -190,7 +190,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480)
+        .frame(width: 480, height: 560)
         .onChange(of: rclonePath) { Task { await model.loadRemotes() } }
         .onChange(of: cacheLimit) {
             Task {

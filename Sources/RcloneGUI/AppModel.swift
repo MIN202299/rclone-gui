@@ -111,6 +111,7 @@ final class AppModel {
             entries = []
             entriesTarget = requested
             cachedIDs = []
+            cachedSizes = [:]
         }
         isLoading = true
         listError = nil
@@ -382,33 +383,43 @@ final class AppModel {
         }
     }
 
+    /// Whether the cached copy still matches the remote item. Normally size + modification time;
+    /// for items without a fixed size (Google Docs/Sheets/Slides, exported on download) the cached
+    /// export's size can't be compared, so the modification time alone decides.
     nonisolated private static func cachedCopyMatches(_ file: URL, _ entry: Entry) -> Bool {
-        guard entry.size >= 0, entry.modTime != .distantPast,
+        guard entry.modTime != .distantPast,
               let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
-              (attrs[.size] as? NSNumber)?.int64Value == entry.size,
-              let modified = attrs[.modificationDate] as? Date else { return false }
-        return abs(modified.timeIntervalSince(entry.modTime)) < 1
+              let modified = attrs[.modificationDate] as? Date,
+              abs(modified.timeIntervalSince(entry.modTime)) < 1 else { return false }
+        return entry.size < 0 || (attrs[.size] as? NSNumber)?.int64Value == entry.size
     }
 
     // MARK: Per-file status
 
     /// Rows in the current folder whose cached copy matches the remote (opens instantly).
     var cachedIDs: Set<Entry.ID> = []
+    /// For items the remote can't size (e.g. Google Docs): the size of the cached exported copy.
+    var cachedSizes: [Entry.ID: Int64] = [:]
 
     /// Re-checks which listed files have an up-to-date cached copy (off the main thread).
     func refreshCacheStatus() {
-        guard let remote = selectedRemoteName else { cachedIDs = []; return }
+        guard let remote = selectedRemoteName else { cachedIDs = []; cachedSizes = [:]; return }
         let files = entries.filter { !$0.isDir }
         let shownTarget = target()
         Task {
-            let ids = await Task.detached(priority: .utility) { () -> Set<Entry.ID> in
-                Set(files.compactMap { e in
+            let (ids, sizes) = await Task.detached(priority: .utility) { () -> (Set<Entry.ID>, [Entry.ID: Int64]) in
+                var ids = Set<Entry.ID>(), sizes = [Entry.ID: Int64]()
+                for e in files {
                     guard let url = FileCache.url(remote: remote, path: e.path),
-                          AppModel.cachedCopyMatches(url, e) else { return nil }
-                    return e.id
-                })
+                          AppModel.cachedCopyMatches(url, e) else { continue }
+                    ids.insert(e.id)
+                    if e.size < 0, let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber {
+                        sizes[e.id] = size.int64Value
+                    }
+                }
+                return (ids, sizes)
             }.value
-            if shownTarget == target() { cachedIDs = ids }
+            if shownTarget == target() { cachedIDs = ids; cachedSizes = sizes }
         }
     }
 
