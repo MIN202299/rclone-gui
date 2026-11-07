@@ -1,6 +1,22 @@
-# Rclone GUI
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/icon-dark.png">
+    <img src="docs/images/icon-light.png" width="128" height="128" alt="Rclone GUI icon">
+  </picture>
+</p>
 
-**English** | [简体中文](README.zh-CN.md)
+<h1 align="center">Rclone GUI</h1>
+
+<p align="center">A lightweight, native macOS app for browsing, previewing and syncing your cloud storage with rclone.</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/Swift-SwiftUI-F05138?logo=swift&logoColor=white" alt="Swift / SwiftUI">
+  <a href="https://rclone.org"><img src="https://img.shields.io/badge/powered%20by-rclone-3F79AD" alt="powered by rclone"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+</p>
+
+<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
 
 A lightweight native macOS app (SwiftUI, no dependencies) for browsing and managing cloud storage through [rclone](https://rclone.org). It runs your installed `rclone` binary and uses your existing `rclone.conf`, so every remote you already have shows up automatically.
 
