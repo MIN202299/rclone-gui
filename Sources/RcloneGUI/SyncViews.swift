@@ -237,7 +237,7 @@ struct SyncTaskEditor: View {
                     Text("Schedule")
                 } footer: {
                     Text("Automatic sync runs while Rclone is open, including when only its menu bar icon is showing.")
-                        .foregroundStyle(.secondary)
+                        .formFooter()
                 }
             }
             .formStyle(.grouped)

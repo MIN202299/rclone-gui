@@ -172,7 +172,7 @@ struct SettingsView: View {
                 Text("rclone")
             } footer: {
                 Text("Leave empty to search Homebrew and common install locations.")
-                    .foregroundStyle(.secondary)
+                    .formFooter()
             }
 
             Section {
@@ -227,7 +227,7 @@ struct SettingsView: View {
                 Text("File Cache")
             } footer: {
                 Text("Files you open are kept here, so opening them again is instant unless they changed on the remote. When the cache is full, the least recently opened files are removed. A custom location gets its own “\(FileCache.folderName)” folder. Edits to cached copies are not uploaded.")
-                    .foregroundStyle(.secondary)
+                    .formFooter()
             }
         }
         .formStyle(.grouped)

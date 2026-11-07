@@ -33,3 +33,13 @@ struct ContentView: View {
         }
     }
 }
+
+extension View {
+    /// Footer text under a grouped form section: secondary and left-aligned. (Grouped forms
+    /// otherwise right-align footers, which reads badly once the text wraps.)
+    func formFooter() -> some View {
+        foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

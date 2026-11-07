@@ -129,7 +129,7 @@ struct AddRemoteView: View {
                     }
                 } footer: {
                     Text("Leave optional settings blank to use rclone's defaults. Providers that use OAuth will ask you to sign in with your browser next.")
-                        .foregroundStyle(.secondary)
+                        .formFooter()
                 }
             }
         }
