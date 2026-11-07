@@ -18,7 +18,7 @@ struct RcloneGUIApp: App {
                     sync.onTransferStarted = { [model] in model.adoptTransfer($0) }
                     sync.onTaskFinished = { [model] task in
                         // Refresh the open folder if this backup changed it.
-                        if model.target() == task.remoteTarget { Task { await model.reload() } }
+                        if model.displayTarget() == task.remoteTarget { Task { await model.reload() } }
                     }
                     await model.loadRemotes()
                 }

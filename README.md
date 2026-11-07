@@ -47,6 +47,12 @@ xattr -dr com.apple.quarantine /Applications/Rclone.app
   - **Upload**: copies from the local folder to the remote. Files deleted locally stay on the remote.
   - **Download**: copies from the remote to the local folder. Files deleted on the remote stay in the local folder.
 
+  **Filters:** macOS system files (`.DS_Store`, `._*`, Spotlight and Trash folders) are skipped by default, and you can add your own rclone exclude patterns, one per line (e.g. `*.tmp`, `node_modules/**`). Changes to excluded files don't start a backup either.
+
+  **Encryption:** turn on **Encrypt the remote copy** and files are encrypted on your Mac before they're uploaded, using rclone's [crypt](https://rclone.org/crypt/) format (optionally with file and folder names encrypted too). The password is kept in your keychain, never in `rclone.conf`, and reaches rclone through environment variables or the local background connection, never the command line. An encrypted backup needs a new or empty remote folder; the app writes a small `.rclonegui-crypt.json` there (format and a password check, never the password) so it can recognise the folder later. Any rclone can read the backup with the same password, e.g. `rclone copy ":crypt,remote='gdrive:Backups/Photos',password='$(rclone obscure 'your password')':" ~/Restore`. If you forget the password the backup can't be recovered. Plain tasks refuse to copy into or out of an encrypted backup, so readable and encrypted files never mix.
+
+  **Unlocking encrypted backups:** opening an encrypted backup folder in the browser shows it locked. **Unlock…** asks for its password (or uses one saved in the keychain by its backup task or an earlier unlock). Unlocked, you browse real file names and open, Quick Look, download, upload, rename or delete files as usual; each file is decrypted only when you use it. **Lock** forgets the key, removes decrypted copies from the file cache, and leaves the folder.
+
   Tasks can run **manually**, **on a schedule** (every 5 minutes to daily) and/or **when local files change** (upload only). They keep running while only the menu bar icon is showing. The Backup Tasks window, the menu bar panel, and a banner above any backed-up folder show each task's last result and live progress, with **Back Up Now**, Stop, Pause and Edit.
 - **Menu bar icon:** a cloud that turns into a sync cloud while jobs are running. Click it to see each job's progress, cancel jobs, or reopen the main window. The app keeps running in the menu bar after you close the window, so transfers continue; clicking the Dock icon brings the window back. Quitting while backups, uploads or downloads are running asks first, and quitting stops them.
 - **Fast on slow-to-connect remotes:** the app keeps one `rclone rcd` running in the background, listening only on 127.0.0.1 with a random password and stopped when the app quits. Folder listings and file fetches reuse its remote connections instead of starting rclone and logging in again each time. If the background rclone can't start, the app falls back to running a separate rclone for each action.
@@ -131,6 +137,7 @@ Sources/RcloneGUI/
   MenuBarView.swift       menu bar icon and jobs panel
   SyncManager.swift       saved backup tasks: running, scheduling, folder watching
   SyncViews.swift         Backup Tasks window, task editor, folder banner
+  Crypt.swift             encrypted backups: rclone crypt folders, marker file, keychain passwords
   AppLanguage.swift       interface language setting and relaunch
   QuitGuard.swift         asks before quitting while jobs run; stops them on quit
 Resources/AppIcon.icon    Icon Composer document (light + dark)

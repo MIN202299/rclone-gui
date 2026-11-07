@@ -207,19 +207,26 @@ enum Rclone {
     }
 
     /// Runs rclone to completion and returns stdout. Throws with rclone's error output on failure.
-    static func run(_ args: [String]) async throws -> Data {
+    /// `input` is written to rclone's standard input (e.g. a password for `rclone obscure -`).
+    static func run(_ args: [String], input: Data? = nil) async throws -> Data {
         guard let exe = locate() else { throw RcloneError.notFound }
         return try await withCheckedThrowingContinuation { cont in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: exe)
             process.arguments = args
+            if let env = rcloneEnvironment(for: args) { process.environment = env }
             let out = Pipe(), err = Pipe()
             process.standardOutput = out
             process.standardError = err
-            process.standardInput = FileHandle.nullDevice
+            let inPipe = input.map { _ in Pipe() }
+            process.standardInput = inPipe ?? FileHandle.nullDevice
             do { try process.run() } catch {
                 cont.resume(throwing: error)
                 return
+            }
+            if let inPipe, let input {
+                inPipe.fileHandleForWriting.write(input)
+                try? inPipe.fileHandleForWriting.close()
             }
             DispatchQueue.global(qos: .userInitiated).async {
                 let errBox = DataBox()

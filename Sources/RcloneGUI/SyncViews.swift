@@ -9,7 +9,13 @@ struct SyncStatusLine: View {
     @Environment(SyncManager.self) private var sync
 
     var body: some View {
-        if let t = sync.running[task.id] {
+        if sync.preparing.contains(task.id) {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text(task.encrypted ? "Checking the encrypted backup…" : "Checking the remote folder…")
+                    .foregroundStyle(.secondary).lineLimit(1)
+            }
+        } else if let t = sync.running[task.id] {
             HStack(spacing: 6) {
                 if let fraction = t.fraction {
                     ProgressView(value: fraction).frame(maxWidth: 120)
@@ -100,12 +106,7 @@ struct SyncTasksView: View {
     }
 
     /// A new task prefilled from the folder open in the browser.
-    private func newTask() -> SyncTask {
-        let remote = model.selectedRemoteName ?? model.remotes.first?.name ?? ""
-        let path = model.selectedRemoteName == nil ? "" : model.path
-        let name = path.split(separator: "/").last.map(String.init) ?? remote
-        return SyncTask(name: name, localPath: "", remote: remote, remotePath: path, mode: .upload)
-    }
+    private func newTask() -> SyncTask { model.backupTaskForCurrentFolder() }
 }
 
 private struct SyncTaskRow: View {
@@ -126,6 +127,12 @@ private struct SyncTaskRow: View {
                         .font(.caption.weight(.medium))
                         .padding(.horizontal, 6).padding(.vertical, 1)
                         .background(.quaternary, in: .capsule)
+                    if task.encrypted {
+                        Label("Encrypted", systemImage: "lock.fill")
+                            .font(.caption.weight(.medium))
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(.quaternary, in: .capsule)
+                    }
                 }
                 Text("\(SyncManager.displayPath(task.localPath))  \(task.mode.arrow)  \(task.remoteTarget)")
                     .font(.callout).foregroundStyle(.secondary)
@@ -187,6 +194,10 @@ struct SyncTaskEditor: View {
     @Environment(SyncManager.self) private var sync
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @State private var password = ""
+    @State private var confirmPassword = ""
+    /// Whether the keychain already has this task's password (editing an encrypted task).
+    @State private var hasSavedPassword = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -223,6 +234,51 @@ struct SyncTaskEditor: View {
                     Text("Direction")
                 }
                 Section {
+                    Toggle("Skip macOS system files", isOn: $task.skipSystemFiles)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Exclude")
+                        TextEditor(text: excludesText)
+                            .font(.body.monospaced())
+                            .frame(height: 64)
+                            .scrollContentBackground(.hidden)
+                            .padding(4)
+                            .background(.background.secondary, in: .rect(cornerRadius: 6))
+                            .overlay(alignment: .topLeading) {
+                                if task.excludes.isEmpty {
+                                    Text(verbatim: "*.tmp\nnode_modules/**")
+                                        .font(.body.monospaced())
+                                        .foregroundStyle(.tertiary)
+                                        .padding(.horizontal, 9).padding(.vertical, 4)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                    }
+                } header: {
+                    Text("Filters")
+                } footer: {
+                    Text("System files are .DS_Store, ._* files and Spotlight or Trash folders. Add one rclone pattern per line: *.tmp skips those files in every folder, node_modules/** skips a whole folder. Excluded files aren't copied; copies already backed up stay as they are.")
+                        .formFooter()
+                }
+                Section {
+                    Toggle("Encrypt the remote copy", isOn: $task.encrypted)
+                    if task.encrypted {
+                        SecureField("Password", text: $password,
+                                    prompt: Text(hasSavedPassword ? "Saved in the keychain — leave empty to keep it" : "Required"))
+                        SecureField("Confirm password", text: $confirmPassword)
+                        Toggle("Also encrypt file and folder names", isOn: $task.encryptNames)
+                    }
+                } header: {
+                    Text("Encryption")
+                } footer: {
+                    if task.encrypted {
+                        Text("Files are encrypted on this Mac before they're uploaded (rclone crypt), so the remote only ever stores encrypted data. The password is kept in your keychain. If you forget it, the backup can't be read by anyone — write it down somewhere safe. An encrypted backup needs a new or empty remote folder; any copy of rclone can read it with the same password. Name encryption applies when the backup is first created.")
+                            .formFooter()
+                    } else {
+                        Text("Encrypt files before they leave this Mac, so the remote only stores data no one can read without your password.")
+                            .formFooter()
+                    }
+                }
+                Section {
                     Picker("Back up automatically", selection: $task.intervalMinutes) {
                         ForEach(SyncTask.intervalChoices, id: \.minutes) { Text($0.label).tag($0.minutes) }
                     }
@@ -246,6 +302,16 @@ struct SyncTaskEditor: View {
                 Button(isNew ? "Create and Back Up Now" : "Save") {
                     task.name = task.name.trimmingCharacters(in: .whitespaces)
                     task.remotePath = task.remotePath.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+                    task.excludes = task.excludes.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                    let account = CryptKeychain.taskAccount(task.id)
+                    if task.encrypted, !password.isEmpty {
+                        guard CryptKeychain.setPassword(password, account) else {
+                            keychainFailed = true
+                            return
+                        }
+                    } else if !task.encrypted {
+                        CryptKeychain.delete(account)
+                    }
                     sync.save(task)
                     if isNew { sync.run(task.id) }
                     dismiss()
@@ -255,13 +321,29 @@ struct SyncTaskEditor: View {
             }
             .padding(12)
         }
-        .frame(width: 560, height: 540)
+        .frame(width: 560, height: 600)
+        .onAppear { hasSavedPassword = CryptKeychain.password(CryptKeychain.taskAccount(task.id)) != nil }
+        .alert("Couldn't save the password in the keychain.", isPresented: $keychainFailed) {
+            Button("OK", role: .cancel) {}
+        }
+    }
+
+    @State private var keychainFailed = false
+
+    /// The exclude patterns as editable text, one per line.
+    private var excludesText: Binding<String> {
+        Binding(get: { task.excludes.joined(separator: "\n") },
+                set: { task.excludes = $0.components(separatedBy: "\n") })
     }
 
     private var problem: String? {
         if task.name.trimmingCharacters(in: .whitespaces).isEmpty { return String(localized: "Enter a name.") }
         if task.localPath.isEmpty { return String(localized: "Choose a local folder.") }
         if task.remote.isEmpty { return String(localized: "Choose a remote.") }
+        if task.encrypted {
+            if password.isEmpty && !hasSavedPassword { return String(localized: "Enter a password for the encrypted backup.") }
+            if password != confirmPassword { return String(localized: "The passwords don't match.") }
+        }
         return nil
     }
 

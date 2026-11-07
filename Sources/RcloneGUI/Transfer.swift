@@ -101,6 +101,7 @@ final class Transfer: Identifiable {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: exe)
         p.arguments = args + ["--use-json-log", "--stats", "500ms", "--stats-log-level", "NOTICE"]
+        if let env = rcloneEnvironment(for: args) { p.environment = env }
         p.standardInput = FileHandle.nullDevice
         p.standardOutput = FileHandle.nullDevice
         let err = Pipe()

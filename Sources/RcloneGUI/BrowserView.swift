@@ -13,6 +13,7 @@ struct BrowserView: View {
     @State private var showingTransfers = false
     @State private var isDropTargeted = false
     @State private var newSyncTask: SyncTask?
+    @State private var showingUnlock = false
     @Environment(SyncManager.self) private var sync
     @Environment(\.openWindow) private var openWindow
 
@@ -27,7 +28,11 @@ struct BrowserView: View {
         VStack(spacing: 0) {
             PathBar()
             Divider()
-            ForEach(sync.tasks(forRemoteTarget: model.target())) { task in
+            if let folder = model.currentCryptFolder {
+                CryptBanner(folder: folder)
+                Divider()
+            }
+            ForEach(sync.tasks(forRemoteTarget: model.displayTarget())) { task in
                 SyncBanner(task: task)
                 Divider()
             }
@@ -67,6 +72,14 @@ struct BrowserView: View {
         .sheet(item: $newSyncTask) { task in
             SyncTaskEditor(task: task, isNew: true)
         }
+        .sheet(isPresented: $showingUnlock) { UnlockSheet() }
+    }
+
+    /// Tries the passwords in the keychain first; asks only if none of them works.
+    private func unlock() {
+        Task {
+            if await !model.unlockWithSavedPassword() { showingUnlock = true }
+        }
     }
 
     private var deleteTitle: String {
@@ -89,6 +102,12 @@ struct BrowserView: View {
                     }
                     .opacity(model.isDeleting(entry) ? 0.45 : 1)
                     Spacer(minLength: 4)
+                    if model.isEncryptedFolder(entry) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .help("Encrypted backup")
+                    }
                     RowStatus(transfer: model.activeTransfer(for: entry),
                               cached: model.cachedIDs.contains(entry.id),
                               deleting: model.isDeleting(entry))
@@ -151,11 +170,11 @@ struct BrowserView: View {
         }
         .dropDestination(for: URL.self) { urls, _ in
             let files = urls.filter(\.isFileURL)
-            guard !files.isEmpty else { return false }
+            guard !files.isEmpty, !model.isLockedHere else { return false }
             model.upload(files)
             showingTransfers = true
             return true
-        } isTargeted: { isDropTargeted = $0 }
+        } isTargeted: { isDropTargeted = $0 && !model.isLockedHere }
         .onKeyPress(.space) {
             guard model.isQuickLookVisible || model.selectedEntries.count == 1 else { return .ignored }
             model.toggleQuickLook()
@@ -173,7 +192,16 @@ struct BrowserView: View {
 
     @ViewBuilder
     private var overlay: some View {
-        if let error = model.listError {
+        if model.isLockedHere {
+            ContentUnavailableView {
+                Label("Encrypted Backup", systemImage: "lock.fill")
+            } description: {
+                Text("The files in this folder are encrypted. Unlock it with its password to browse, open and restore them. They're decrypted on this Mac only as you use them.")
+            } actions: {
+                Button("Unlock…") { unlock() }
+                    .buttonStyle(.borderedProminent)
+            }
+        } else if let error = model.listError {
             ContentUnavailableView {
                 Label("Couldn't Load Folder", systemImage: "exclamationmark.icloud")
             } description: {
@@ -214,6 +242,9 @@ struct BrowserView: View {
             Button("Copy Path") { model.copyPath(items) }
             Divider()
             Button("Delete…", role: .destructive) { pendingDelete = items }
+        } else if model.isLockedHere {
+            Button("Unlock…") { unlock() }
+            Button("Refresh") { Task { await model.reload() } }
         } else {
             Button("New Folder…") { newFolderName = ""; showingNewFolder = true }
             Button("Upload…") { chooseUploads() }
@@ -239,8 +270,10 @@ struct BrowserView: View {
             Button { newFolderName = ""; showingNewFolder = true } label: {
                 Label("New Folder", systemImage: "folder.badge.plus")
             }
+            .disabled(model.isLockedHere)
             .help("New Folder")
             Button { chooseUploads() } label: { Label("Upload", systemImage: "icloud.and.arrow.up") }
+                .disabled(model.isLockedHere)
                 .help("Upload files or folders here")
             Button { chooseDownloadFolder(for: model.selectedEntries) } label: {
                 Label("Download", systemImage: "icloud.and.arrow.down")
@@ -248,12 +281,11 @@ struct BrowserView: View {
             .disabled(model.selection.isEmpty)
             .help("Download selected items")
             Menu {
-                Button("New Backup Task for This Folder…") {
-                    let name = model.pathComponents.last ?? model.selectedRemoteName ?? ""
-                    newSyncTask = SyncTask(name: name, localPath: "", remote: model.selectedRemoteName ?? "",
-                                           remotePath: model.path, mode: .upload)
+                Button(model.currentCryptFolder != nil || model.isLockedHere
+                       ? "New Backup Task for This Encrypted Backup…" : "New Backup Task for This Folder…") {
+                    newSyncTask = model.backupTaskForCurrentFolder()
                 }
-                let here = sync.tasks(forRemoteTarget: model.target())
+                let here = sync.tasks(forRemoteTarget: model.displayTarget())
                 if !here.isEmpty {
                     Divider()
                     ForEach(here) { task in
@@ -297,7 +329,7 @@ struct BrowserView: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.prompt = String(localized: "Upload")
-        panel.message = String(localized: "Choose files or folders to upload to \(model.target())")
+        panel.message = String(localized: "Choose files or folders to upload to \(model.displayTarget())")
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
         model.upload(panel.urls)
         showingTransfers = true
@@ -500,5 +532,101 @@ private struct StatusBar: View {
         if bytes > 0 { text += " · \(bytes.byteString)" }
         if !model.selection.isEmpty { text = String(localized: "\(model.selection.count) selected of \(text)") }
         return text
+    }
+}
+
+// MARK: - Encrypted backups
+
+/// Shown above the file list while the open folder is inside an unlocked encrypted backup.
+private struct CryptBanner: View {
+    let folder: CryptFolder
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "lock.open.fill").foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Encrypted backup — unlocked")
+                Text("Files are decrypted on this Mac as you open or download them, and encrypted as you upload them.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+            }
+            Spacer()
+            if model.hasRememberedPassword {
+                Menu("Lock") {
+                    Button("Lock") { Task { await model.lock(folder) } }
+                    Button("Lock and Forget Saved Password") { Task { await model.lock(folder, forgetPassword: true) } }
+                } primaryAction: {
+                    Task { await model.lock(folder) }
+                }
+                .fixedSize()
+            } else {
+                Button("Lock") { Task { await model.lock(folder) } }
+            }
+        }
+        .controlSize(.small)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.tint.opacity(0.08))
+        .help(folder.plainTarget)
+    }
+}
+
+/// Asks for the password of the encrypted backup open in the browser.
+private struct UnlockSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var password = ""
+    @State private var remember = false
+    @State private var working = false
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(systemName: "lock.fill").font(.largeTitle).foregroundStyle(.tint)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Unlock “\(model.pathComponents.last ?? model.selectedRemoteName ?? "")”").font(.headline)
+                    Text("Enter the password of this encrypted backup.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            SecureField("Password", text: $password)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(submit)
+            Toggle("Remember in my keychain", isOn: $remember)
+            if let error {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                if working { ProgressView().controlSize(.small) }
+                Spacer()
+                Button("Cancel", role: .cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Unlock", action: submit)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(password.isEmpty || working)
+            }
+        }
+        .padding(20)
+        .frame(width: 380)
+    }
+
+    private func submit() {
+        guard !password.isEmpty, !working else { return }
+        working = true
+        error = nil
+        Task {
+            do {
+                try await model.unlock(password: password, remember: remember)
+                dismiss()
+            } catch {
+                self.error = error.localizedDescription
+                password = ""
+            }
+            working = false
+        }
     }
 }

@@ -165,6 +165,12 @@ enum FileCache {
         }
     }
 
+    /// Deletes the cached copies of everything in a remote folder ("" = the whole remote).
+    static func removeFolder(remote: String, path: String) {
+        let folder = path.isEmpty ? (remote.contains("/") ? nil : root.appendingPathComponent(remote)) : url(remote: remote, path: path)
+        if let folder { try? FileManager.default.removeItem(at: folder) }
+    }
+
     static func clear() {
         try? FileManager.default.removeItem(at: root)
     }

@@ -108,6 +108,12 @@ final class RcloneDaemon {
     /// POSTs a remote-control command and returns the decoded JSON object.
     func call(_ command: String, _ params: [String: Any] = [:]) async throws -> [String: Any] {
         let base = try await endpoint()
+        var params = params
+        // Encrypted folders are named by an alias ("rgcrypt_…:"), defined for one-shot processes through
+        // environment variables; the background rclone gets the full definition instead.
+        for key in ["fs", "srcFs", "dstFs"] {
+            if let fs = params[key] as? String { params[key] = CryptAliases.shared.daemonFs(fs) }
+        }
         var req = URLRequest(url: base.appendingPathComponent(command))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -125,7 +131,11 @@ final class RcloneDaemon {
     // MARK: Operations
 
     func list(remote: String, path: String) async throws -> [Entry] {
-        let obj = try await call("operations/list", ["fs": "\(remote):", "remote": path, "opt": ["noMimeType": true]])
+        try await list(fs: "\(remote):", path: path)
+    }
+
+    func list(fs: String, path: String) async throws -> [Entry] {
+        let obj = try await call("operations/list", ["fs": fs, "remote": path, "opt": ["noMimeType": true]])
         let items = obj["list"] as? [Any] ?? []
         let data = try JSONSerialization.data(withJSONObject: items)
         return try JSONDecoder().decode([Entry].self, from: data)

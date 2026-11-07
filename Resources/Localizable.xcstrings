@@ -336,6 +336,16 @@
         }
       }
     },
+    "Also encrypt file and folder names": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同时加密文件名和文件夹名"
+          }
+        }
+      }
+    },
     "Automatic backups run while Rclone is open, including when only its menu bar icon is showing.": {
       "localizations": {
         "zh-Hans": {
@@ -532,12 +542,32 @@
         }
       }
     },
+    "Checking the encrypted backup…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在检查加密备份…"
+          }
+        }
+      }
+    },
     "Checking the latest version…": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "正在检查最新版本…"
+          }
+        }
+      }
+    },
+    "Checking the remote folder…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在检查远端文件夹…"
           }
         }
       }
@@ -752,6 +782,16 @@
         }
       }
     },
+    "Confirm password": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认密码"
+          }
+        }
+      }
+    },
     "Connecting…": {
       "localizations": {
         "zh-Hans": {
@@ -834,6 +874,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法从 rclone.org 读取 rclone 的最新版本。"
+          }
+        }
+      }
+    },
+    "Couldn't save the password in the keychain.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法将密码保存到钥匙串。"
           }
         }
       }
@@ -1134,12 +1184,102 @@
         }
       }
     },
+    "Encrypt files before they leave this Mac, so the remote only stores data no one can read without your password.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件在离开这台 Mac 之前先加密，远端只保存没有密码就无法读取的数据。"
+          }
+        }
+      }
+    },
+    "Encrypt the remote copy": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加密远端副本"
+          }
+        }
+      }
+    },
+    "Encrypted": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已加密"
+          }
+        }
+      }
+    },
+    "Encrypted Backup": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加密备份"
+          }
+        }
+      }
+    },
+    "Encrypted backup": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加密备份"
+          }
+        }
+      }
+    },
+    "Encrypted backup — unlocked": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加密备份 — 已解锁"
+          }
+        }
+      }
+    },
+    "Encryption": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加密"
+          }
+        }
+      }
+    },
     "Enter a name.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "请输入名称。"
+          }
+        }
+      }
+    },
+    "Enter a password for the encrypted backup.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请为加密备份输入密码。"
+          }
+        }
+      }
+    },
+    "Enter the password of this encrypted backup.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入这个加密备份的密码。"
           }
         }
       }
@@ -1214,6 +1354,16 @@
         }
       }
     },
+    "Exclude": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "排除"
+          }
+        }
+      }
+    },
     "Failed": {
       "localizations": {
         "zh-Hans": {
@@ -1244,6 +1394,26 @@
         }
       }
     },
+    "Files are decrypted on this Mac as you open or download them, and encrypted as you upload them.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开或下载时在这台 Mac 上解密，上传时自动加密。"
+          }
+        }
+      }
+    },
+    "Files are encrypted on this Mac before they're uploaded (rclone crypt), so the remote only ever stores encrypted data. The password is kept in your keychain. If you forget it, the backup can't be read by anyone — write it down somewhere safe. An encrypted backup needs a new or empty remote folder; any copy of rclone can read it with the same password. Name encryption applies when the backup is first created.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件在上传前就在这台 Mac 上加密（rclone crypt），远端只保存加密后的数据。密码保存在你的钥匙串中。忘记密码后，任何人都无法读取这份备份——请把密码记在安全的地方。加密备份需要使用新的或空的远端文件夹；任何 rclone 只要使用相同密码都能读取。文件名加密设置只在首次创建备份时生效。"
+          }
+        }
+      }
+    },
     "Files you open are kept here, so opening them again is instant unless they changed on the remote. When the cache is full, the least recently opened files are removed. A custom location gets its own “%@” folder. Edits to cached copies are not uploaded.": {
       "localizations": {
         "zh-Hans": {
@@ -1260,6 +1430,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "筛选此文件夹"
+          }
+        }
+      }
+    },
+    "Filters": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "过滤"
           }
         }
       }
@@ -1454,6 +1634,26 @@
         }
       }
     },
+    "Lock": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "锁定"
+          }
+        }
+      }
+    },
+    "Lock and Forget Saved Password": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "锁定并删除已保存的密码"
+          }
+        }
+      }
+    },
     "Manage…": {
       "localizations": {
         "zh-Hans": {
@@ -1564,6 +1764,16 @@
         }
       }
     },
+    "New Backup Task for This Encrypted Backup…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为此加密备份新建备份任务…"
+          }
+        }
+      }
+    },
     "New Backup Task for This Folder…": {
       "localizations": {
         "zh-Hans": {
@@ -1640,6 +1850,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "没有项目"
+          }
+        }
+      }
+    },
+    "No password is saved for this encrypted backup. Edit the task and enter it again.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个加密备份没有保存密码。请编辑任务并重新输入密码。"
           }
         }
       }
@@ -1824,6 +2044,16 @@
         }
       }
     },
+    "Password": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "密码"
+          }
+        }
+      }
+    },
     "Path inside the remote, e.g. Photos/2026": {
       "localizations": {
         "zh-Hans": {
@@ -1943,6 +2173,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新载入远程存储"
+          }
+        }
+      }
+    },
+    "Remember in my keychain": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存到我的钥匙串"
           }
         }
       }
@@ -2097,6 +2337,16 @@
         }
       }
     },
+    "Saved in the keychain — leave empty to keep it": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存在钥匙串中——留空则保持不变"
+          }
+        }
+      }
+    },
     "Schedule": {
       "localizations": {
         "zh-Hans": {
@@ -2207,6 +2457,16 @@
         }
       }
     },
+    "Skip macOS system files": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跳过 macOS 系统文件"
+          }
+        }
+      }
+    },
     "Something went wrong": {
       "localizations": {
         "zh-Hans": {
@@ -2247,6 +2507,16 @@
         }
       }
     },
+    "System files are .DS_Store, ._* files and Spotlight or Trash folders. Add one rclone pattern per line: *.tmp skips those files in every folder, node_modules/** skips a whole folder. Excluded files aren't copied; copies already backed up stay as they are.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "系统文件指 .DS_Store、._* 文件以及 Spotlight 和废纸篓文件夹。每行填一条 rclone 规则：*.tmp 会跳过所有文件夹里的 .tmp 文件，node_modules/** 会跳过整个文件夹。被排除的文件不会被复制；已经备份过的副本保持不变。"
+          }
+        }
+      }
+    },
     "Tasks are still running. Quit Rclone?": {
       "localizations": {
         "zh-Hans": {
@@ -2277,12 +2547,42 @@
         }
       }
     },
+    "The files in this folder are encrypted. Unlock it with its password to browse, open and restore them. They're decrypted on this Mac only as you use them.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个文件夹中的文件已加密。输入密码解锁后即可浏览、打开和恢复；文件只在你使用时才在这台 Mac 上解密。"
+          }
+        }
+      }
+    },
     "The local folder “%@” can't be found.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "找不到本地文件夹“%@”。"
+          }
+        }
+      }
+    },
+    "The password is wrong for this encrypted backup.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个加密备份的密码不正确。"
+          }
+        }
+      }
+    },
+    "The passwords don't match.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "两次输入的密码不一致。"
           }
         }
       }
@@ -2353,6 +2653,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "重试"
+          }
+        }
+      }
+    },
+    "Unlock": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解锁"
+          }
+        }
+      }
+    },
+    "Unlock “%@”": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解锁“%@”"
+          }
+        }
+      }
+    },
+    "Unlock…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解锁…"
           }
         }
       }
@@ -2470,6 +2800,26 @@
     "rclone": {
       "shouldTranslate": false
     },
+    "rclone couldn't check the password.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rclone 无法校验密码。"
+          }
+        }
+      }
+    },
+    "rclone couldn't encode the password.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rclone 无法编码密码。"
+          }
+        }
+      }
+    },
     "rclone didn't start the job.": {
       "localizations": {
         "zh-Hans": {
@@ -2546,6 +2896,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "最新版 rclone"
+          }
+        }
+      }
+    },
+    "“%@” already has files that aren't part of an encrypted backup. Choose a new or empty folder for an encrypted backup.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”中已有不属于加密备份的文件。请为加密备份选择一个新的或空的文件夹。"
+          }
+        }
+      }
+    },
+    "“%@” doesn't hold an encrypted backup.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”中没有加密备份。"
+          }
+        }
+      }
+    },
+    "“%@” holds an encrypted backup. Turn on encryption for this task to use it.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”中是加密备份。请为这个任务开启加密后再使用。"
           }
         }
       }

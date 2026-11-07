@@ -58,10 +58,36 @@ struct SyncTask: Codable, Identifiable, Hashable {
     /// Also back up shortly after files in the local folder change (upload only).
     var watchLocal = false
     var paused = false
+    /// Leave out Finder and Spotlight files such as .DS_Store and ._* (see `systemExcludes`).
+    var skipSystemFiles = true
+    /// Extra rclone `--exclude` patterns, e.g. "*.tmp" or "node_modules/**".
+    var excludes: [String] = []
+    /// Keep the remote copy encrypted with rclone crypt (password in the keychain, see `CryptKeychain`).
+    var encrypted = false
+    /// For new encrypted backups: also encrypt file and folder names. An existing backup's own
+    /// setting (in its marker file) always wins.
+    var encryptNames = true
 
     var lastRun: Date?
     var lastSuccess: Bool?
     var lastMessage: String?
+
+    /// Files macOS creates on its own, which aren't worth backing up.
+    static let systemExcludes = [".DS_Store", "._*", ".localized", ".Spotlight-V100/**", ".Trashes/**",
+                                 ".fseventsd/**", ".TemporaryItems/**", ".DocumentRevisions-V100/**"]
+
+    /// Every pattern this task leaves out.
+    var excludePatterns: [String] {
+        let own = excludes.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        return (skipSystemFiles ? Self.systemExcludes : []) + own
+    }
+
+    /// Whether a changed local file is one this task leaves out. Only patterns without a "/" are
+    /// checked (against the file name), which covers .DS_Store and the like.
+    func excludes(localPath path: String) -> Bool {
+        let name = (path as NSString).lastPathComponent
+        return excludePatterns.contains { !$0.contains("/") && fnmatch($0, name, 0) == 0 }
+    }
 
     var remoteTarget: String { "\(remote):\(remotePath)" }
     var localURL: URL { URL(fileURLWithPath: localPath, isDirectory: true) }
@@ -92,6 +118,29 @@ struct SyncTask: Codable, Identifiable, Hashable {
     }
 }
 
+extension SyncTask {
+    /// Tolerates tasks saved before newer settings existed.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        localPath = try c.decode(String.self, forKey: .localPath)
+        remote = try c.decode(String.self, forKey: .remote)
+        remotePath = try c.decode(String.self, forKey: .remotePath)
+        mode = try c.decode(Mode.self, forKey: .mode)
+        intervalMinutes = try c.decodeIfPresent(Int.self, forKey: .intervalMinutes) ?? 0
+        watchLocal = try c.decodeIfPresent(Bool.self, forKey: .watchLocal) ?? false
+        paused = try c.decodeIfPresent(Bool.self, forKey: .paused) ?? false
+        skipSystemFiles = try c.decodeIfPresent(Bool.self, forKey: .skipSystemFiles) ?? true
+        excludes = try c.decodeIfPresent([String].self, forKey: .excludes) ?? []
+        encrypted = try c.decodeIfPresent(Bool.self, forKey: .encrypted) ?? false
+        encryptNames = try c.decodeIfPresent(Bool.self, forKey: .encryptNames) ?? true
+        lastRun = try c.decodeIfPresent(Date.self, forKey: .lastRun)
+        lastSuccess = try c.decodeIfPresent(Bool.self, forKey: .lastSuccess)
+        lastMessage = try c.decodeIfPresent(String.self, forKey: .lastMessage)
+    }
+}
+
 /// Stores backup tasks, runs them on demand, on a schedule, or when local files change.
 @Observable @MainActor
 final class SyncManager {
@@ -100,6 +149,8 @@ final class SyncManager {
     private(set) var tasks: [SyncTask] = []
     /// Transfers of tasks that are backing up right now.
     private(set) var running: [UUID: Transfer] = [:]
+    /// Encrypted tasks checking their password and folder before the copy starts.
+    private(set) var preparing: Set<UUID> = []
 
     /// Hooks so the main window can list backup transfers and refresh affected folders.
     @ObservationIgnored var onTransferStarted: ((Transfer) -> Void)?
@@ -129,7 +180,7 @@ final class SyncManager {
     // MARK: Queries
 
     func task(_ id: UUID) -> SyncTask? { tasks.first { $0.id == id } }
-    func isRunning(_ id: UUID) -> Bool { running[id] != nil }
+    func isRunning(_ id: UUID) -> Bool { running[id] != nil || preparing.contains(id) }
 
     /// Tasks whose remote folder is exactly `target` ("remote:path").
     func tasks(forRemoteTarget target: String) -> [SyncTask] {
@@ -158,6 +209,7 @@ final class SyncManager {
         guard task(id) != nil else { return }
         running[id]?.cancel()
         tasks.removeAll { $0.id == id }
+        CryptKeychain.delete(CryptKeychain.taskAccount(id))
         persist()
         refreshWatchers()
     }
@@ -181,7 +233,7 @@ final class SyncManager {
     func cancelAll() { running.values.forEach { $0.cancel() } }
 
     func run(_ id: UUID, automatic: Bool = false) {
-        guard let task = task(id), running[id] == nil else { return }
+        guard let task = task(id), !isRunning(id) else { return }
         if automatic && task.paused { return }
 
         var isDir: ObjCBool = false
@@ -194,19 +246,59 @@ final class SyncManager {
         if task.mode == .download && !localExists {
             try? FileManager.default.createDirectory(atPath: task.localPath, withIntermediateDirectories: true)
         }
-        start(task)
+        preparing.insert(id)
+        Task {
+            do {
+                let folder = try await checkRemoteFolder(task)
+                preparing.remove(id)
+                start(task, crypt: folder)
+            } catch {
+                preparing.remove(id)
+                record(id, success: false, message: error.localizedDescription)
+                if let updated = self.task(id) { onTaskFinished?(updated) }
+            }
+        }
     }
 
-    private func start(_ task: SyncTask) {
+    /// Makes sure the remote folder matches the task: an encrypted task needs an encrypted backup
+    /// with the same password (or a new or empty folder to start one in), and a plain task must not
+    /// copy readable files into, or encrypted files out of, an encrypted backup.
+    private func checkRemoteFolder(_ task: SyncTask) async throws -> CryptFolder? {
+        let marker = try await Crypt.readMarker(remote: task.remote, path: task.remotePath)
+        guard task.encrypted else {
+            if marker != nil { throw CryptError.isEncrypted(task.remoteTarget) }
+            return nil
+        }
+        guard let password = CryptKeychain.password(CryptKeychain.taskAccount(task.id)) else { throw CryptError.noPassword }
+        if let marker {
+            return try await Crypt.open(remote: task.remote, path: task.remotePath, marker: marker, password: password)
+        }
+        if task.mode == .download { throw CryptError.notEncrypted(task.remoteTarget) }
+        guard try await Crypt.isEmptyOrMissing(remote: task.remote, path: task.remotePath) else {
+            throw CryptError.notEmpty(task.remoteTarget)
+        }
+        // A new encrypted backup: record its settings first so the folder is recognised from now on.
+        let obscured = try await Crypt.obscure(password)
+        let created = CryptMarker(encryptNames: task.encryptNames, check: try await Crypt.checkValue(obscured: obscured), created: Date())
+        try await Crypt.writeMarker(created, remote: task.remote, path: task.remotePath)
+        return CryptFolder(remote: task.remote, path: task.remotePath, encryptNames: created.encryptNames, obscuredPassword: obscured)
+    }
+
+    private func start(_ task: SyncTask, crypt: CryptFolder?) {
         guard running[task.id] == nil else { return }
+        // Encrypted backups go through a crypt remote over the folder; its password reaches rclone
+        // through environment variables, never the command line.
+        let remoteTarget = crypt.map { "\($0.alias):" } ?? task.remoteTarget
+        if let crypt { CryptAliases.shared.register(crypt) }
         // `copy` never deletes from the destination, so emptied or missing files never spread.
-        let args: [String]
+        var args: [String]
         switch task.mode {
         case .upload:
-            args = ["copy", task.localPath, task.remoteTarget, "--create-empty-src-dirs"]
+            args = ["copy", task.localPath, remoteTarget, "--create-empty-src-dirs"]
         case .download:
-            args = ["copy", task.remoteTarget, task.localPath, "--create-empty-src-dirs"]
+            args = ["copy", remoteTarget, task.localPath, "--create-empty-src-dirs"]
         }
+        for pattern in task.excludePatterns { args += ["--exclude", pattern] }
 
         let t = Transfer(kind: .sync, title: task.name,
                          detail: "\(Self.displayPath(task.localPath)) \(task.mode.arrow) \(task.remoteTarget)",
@@ -214,6 +306,7 @@ final class SyncManager {
         running[task.id] = t
         onTransferStarted?(t)
         t.onFinish = { [weak self] t in
+            if let crypt { CryptAliases.shared.unregister(crypt) }
             guard let self else { return }
             self.running[task.id] = nil
             self.cooldownUntil[task.id] = Date().addingTimeInterval(8) // ignore our own local writes
@@ -276,7 +369,12 @@ final class SyncManager {
         for id in wanted {
             guard let task = task(id) else { continue }
             if let w = watchers[id], w.path == task.localPath { continue }
-            watchers[id] = LocalWatcher(path: task.localPath) { [weak self] in self?.localChanged(id) }
+            watchers[id] = LocalWatcher(path: task.localPath) { [weak self] paths in
+                // Finder rewriting .DS_Store and the like shouldn't start a backup.
+                guard let self, let task = self.task(id) else { return }
+                if !paths.isEmpty && paths.allSatisfy(task.excludes(localPath:)) { return }
+                self.localChanged(id)
+            }
         }
     }
 
@@ -310,28 +408,30 @@ final class SyncManager {
     }
 }
 
-/// Watches a folder tree with FSEvents and calls `onChange` (on the main queue) when anything changes.
+/// Watches a folder tree with FSEvents and calls `onChange` (on the main queue) with the changed paths.
 final class LocalWatcher {
     let path: String
     private var stream: FSEventStreamRef?
     private let box: Unmanaged<Callback>
 
     private final class Callback {
-        let fn: () -> Void
-        init(_ fn: @escaping () -> Void) { self.fn = fn }
+        let fn: ([String]) -> Void
+        init(_ fn: @escaping ([String]) -> Void) { self.fn = fn }
     }
 
-    init(path: String, onChange: @escaping () -> Void) {
+    init(path: String, onChange: @escaping ([String]) -> Void) {
         self.path = path
         box = Unmanaged.passRetained(Callback(onChange))
         var context = FSEventStreamContext(version: 0, info: box.toOpaque(), retain: nil, release: nil, copyDescription: nil)
-        let callback: FSEventStreamCallback = { _, info, _, _, _, _ in
+        let callback: FSEventStreamCallback = { _, info, _, eventPaths, _, _ in
             guard let info else { return }
-            Unmanaged<Callback>.fromOpaque(info).takeUnretainedValue().fn()
+            let paths = Unmanaged<CFArray>.fromOpaque(eventPaths).takeUnretainedValue() as? [String] ?? []
+            Unmanaged<Callback>.fromOpaque(info).takeUnretainedValue().fn(paths)
         }
         stream = FSEventStreamCreate(nil, callback, &context, [path] as CFArray,
                                      FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 2.0,
-                                     FSEventStreamCreateFlags(kFSEventStreamCreateFlagNoDefer))
+                                     FSEventStreamCreateFlags(kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagUseCFTypes
+                                                             | kFSEventStreamCreateFlagFileEvents))
         if let stream {
             FSEventStreamSetDispatchQueue(stream, .main)
             FSEventStreamStart(stream)

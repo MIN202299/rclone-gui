@@ -75,9 +75,34 @@ final class AppModel {
 
     // MARK: Paths
 
+    /// The rclone target for a path on the selected remote. Inside an unlocked encrypted backup this
+    /// goes through its crypt remote ("rgcrypt_…:sub/path"), so files are decrypted on the way.
     func target(_ relative: String? = nil) -> String {
+        let loc = location(relative ?? path)
+        return loc.fs.isEmpty ? "" : loc.fs + loc.remote
+    }
+
+    /// The plain "remote:path" to show people (and to match backup tasks), never the crypt alias.
+    func displayTarget(_ relative: String? = nil) -> String {
         guard let remote = selectedRemoteName else { return "" }
         return "\(remote):\(relative ?? path)"
+    }
+
+    /// The rclone fs ("remote:" or "rgcrypt_…:") and the path inside it for a path on the selected remote.
+    func location(_ relative: String) -> (fs: String, remote: String) {
+        guard let remote = selectedRemoteName else { return ("", relative) }
+        if let folder = cryptFolder(for: relative) { return ("\(folder.alias):", Self.subpath(relative, of: folder.path)) }
+        return ("\(remote):", relative)
+    }
+
+    /// `path` relative to `root` (both relative to the remote root; `path` must be inside `root`).
+    static func subpath(_ path: String, of root: String) -> String {
+        if root.isEmpty || path == root { return root.isEmpty ? path : "" }
+        return String(path.dropFirst(root.count + 1))
+    }
+
+    static func isInside(_ path: String, _ root: String) -> Bool {
+        root.isEmpty || path == root || path.hasPrefix(root + "/")
     }
 
     static func join(_ a: String, _ b: String) -> String {
@@ -119,10 +144,18 @@ final class AppModel {
         defer { isLoading = false }
         do {
             // lsjson paths are relative to the listed folder; make them relative to the remote root.
-            let result = try await listEntries(requested, remote: selectedRemoteName ?? "", dir: dir).map { entry -> Entry in
+            var result = try await listEntries(requested, remote: selectedRemoteName ?? "", dir: dir).map { entry -> Entry in
                 var e = entry
                 e.path = Self.join(dir, entry.name)
                 return e
+            }
+            // A folder holding an encrypted backup: its files are unreadable until it's unlocked.
+            let plain = displayTarget(dir)
+            if cryptFolder(for: dir) == nil, result.contains(where: { !$0.isDir && $0.name == CryptMarker.fileName }) {
+                knownEncrypted.insert(plain)
+                result = []
+            } else if cryptFolder(for: dir) == nil {
+                knownEncrypted.remove(plain)
             }
             if listCache.count > 500 { listCache.removeAll() }
             listCache[requested] = result
@@ -149,7 +182,8 @@ final class AppModel {
     /// Lists through the background rclone (fast); falls back to a one-shot process if it's unavailable.
     private func listEntries(_ target: String, remote: String, dir: String) async throws -> [Entry] {
         do {
-            return try await RcloneDaemon.shared.list(remote: remote, path: dir)
+            let loc = location(dir)
+            return try await RcloneDaemon.shared.list(fs: loc.fs, path: loc.remote)
         } catch where DaemonUnavailable.matches(error) {
             return try await Rclone.list(target)
         }
@@ -259,8 +293,9 @@ final class AppModel {
     /// Deletes through the background rclone (reuses its connection); falls back to a one-shot process.
     private func deleteItem(_ item: Entry, remote: String, target: String) async throws {
         do {
+            let loc = location(item.path)
             _ = try await RcloneDaemon.shared.call(item.isDir ? "operations/purge" : "operations/deletefile",
-                                                   ["fs": "\(remote):", "remote": item.path])
+                                                   ["fs": loc.fs, "remote": loc.remote])
         } catch where DaemonUnavailable.matches(error) {
             _ = try await Rclone.run(item.isDir ? ["purge", target] : ["deletefile", target])
         }
@@ -275,7 +310,7 @@ final class AppModel {
     }
 
     func copyPath(_ items: [Entry]) {
-        let text = items.map { target($0.path) }.joined(separator: "\n")
+        let text = items.map { displayTarget($0.path) }.joined(separator: "\n")
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
@@ -304,8 +339,9 @@ final class AppModel {
         for url in urls {
             var isDir: ObjCBool = false
             FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
-            let dest = isDir.boolValue ? target(Self.join(destDir, url.lastPathComponent)) : target(destDir)
-            let t = Transfer(kind: .upload, title: url.lastPathComponent, detail: "→ \(dest)")
+            let destPath = isDir.boolValue ? Self.join(destDir, url.lastPathComponent) : destDir
+            let dest = target(destPath)
+            let t = Transfer(kind: .upload, title: url.lastPathComponent, detail: "→ \(displayTarget(destPath))")
             startTransfer(t, args: ["copy", url.path, dest])
         }
     }
@@ -377,7 +413,7 @@ final class AppModel {
     private func fetchToCache(_ entry: Entry, forPreview: Bool, completion: @escaping (URL) -> Void) {
         guard let remote = selectedRemoteName else { return }
         let fm = FileManager.default
-        let file = FileCache.url(remote: remote, path: entry.path)
+        let file = FileCache.url(remote: cacheName(for: entry.path), path: entry.path)
             ?? fm.temporaryDirectory.appendingPathComponent("RcloneGUI/\(UUID().uuidString)/\(entry.name)")
         try? fm.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
 
@@ -420,9 +456,10 @@ final class AppModel {
                 await self?.refreshCacheStatus()
             }
         }
+        let loc = location(entry.path)
         startTransfer(t, then: finish) { t in
             t.startJob("operations/copyfile", [
-                "srcFs": "\(remote):", "srcRemote": entry.path,
+                "srcFs": loc.fs, "srcRemote": loc.remote,
                 "dstFs": file.deletingLastPathComponent().path, "dstRemote": file.lastPathComponent,
             ], fallbackArgs: ["copyto", target(entry.path), file.path])
         }
@@ -466,11 +503,12 @@ final class AppModel {
         let files = entries.filter { !$0.isDir }
         let shownTarget = target()
         let sizeOnly = sizeOnlyRemotes[remote] == true
+        let cacheRemote = cacheName(for: path)
         Task {
             let (ids, sizes) = await Task.detached(priority: .utility) { () -> (Set<Entry.ID>, [Entry.ID: Int64]) in
                 var ids = Set<Entry.ID>(), sizes = [Entry.ID: Int64]()
                 for e in files {
-                    guard let url = FileCache.url(remote: remote, path: e.path),
+                    guard let url = FileCache.url(remote: cacheRemote, path: e.path),
                           AppModel.cachedCopyMatches(url, e, sizeOnly: sizeOnly) else { continue }
                     ids.insert(e.id)
                     if e.size < 0, let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber {
@@ -509,6 +547,118 @@ final class AppModel {
 
     func clearFinishedTransfers() {
         transfers.removeAll { !$0.isRunning }
+    }
+
+    // MARK: Encrypted backups
+
+    /// Encrypted backup folders unlocked this session, by their plain "remote:path".
+    private(set) var unlockedFolders: [String: CryptFolder] = [:]
+    /// Plain targets of folders seen to hold an encrypted backup.
+    private(set) var knownEncrypted: Set<String> = []
+
+    /// The unlocked encrypted folder `relative` is in, if any (the innermost one).
+    func cryptFolder(for relative: String) -> CryptFolder? {
+        guard let remote = selectedRemoteName else { return nil }
+        return unlockedFolders.values
+            .filter { $0.remote == remote && Self.isInside(relative, $0.path) }
+            .max { $0.path.count < $1.path.count }
+    }
+
+    /// The unlocked encrypted backup the open folder is in.
+    var currentCryptFolder: CryptFolder? { cryptFolder(for: path) }
+
+    /// The open folder is an encrypted backup that hasn't been unlocked; its files aren't listed.
+    var isLockedHere: Bool { currentCryptFolder == nil && knownEncrypted.contains(displayTarget()) }
+
+    /// Whether a listed folder is an encrypted backup (seen before, or the target of an encrypted task).
+    func isEncryptedFolder(_ entry: Entry) -> Bool {
+        guard entry.isDir, currentCryptFolder == nil else { return false }
+        let plain = displayTarget(entry.path)
+        return knownEncrypted.contains(plain)
+            || SyncManager.shared.tasks.contains { $0.encrypted && $0.remoteTarget == plain }
+    }
+
+    /// Decrypted files are cached apart from the remote's own files, so locking can remove them.
+    private func cacheName(for relative: String) -> String {
+        let remote = selectedRemoteName ?? ""
+        return cryptFolder(for: relative) == nil ? remote : remote + " (encrypted)"
+    }
+
+    /// Unlocks the encrypted backup open in the browser.
+    func unlock(password: String, remember: Bool) async throws {
+        guard let remote = selectedRemoteName else { return }
+        let root = path
+        guard let marker = try await Crypt.readMarker(remote: remote, path: root) else {
+            throw CryptError.notEncrypted(displayTarget(root))
+        }
+        let folder = try await Crypt.open(remote: remote, path: root, marker: marker, password: password)
+        if remember { CryptKeychain.setPassword(password, CryptKeychain.folderAccount(folder.plainTarget)) }
+        guard unlockedFolders[folder.plainTarget] == nil else { return }
+        CryptAliases.shared.register(folder)
+        unlockedFolders[folder.plainTarget] = folder
+        if selectedRemoteName == remote && path == root { await reload() }
+    }
+
+    /// Passwords in the keychain that may open the open folder: one remembered when it was unlocked
+    /// before, and those of encrypted backup tasks for it.
+    private var savedPasswords: [String] {
+        let plain = displayTarget()
+        let tasks = SyncManager.shared.tasks.filter { $0.encrypted && $0.remoteTarget == plain }
+        let accounts = [CryptKeychain.folderAccount(plain)] + tasks.map { CryptKeychain.taskAccount($0.id) }
+        var seen = Set<String>()
+        return accounts.compactMap(CryptKeychain.password).filter { seen.insert($0).inserted }
+    }
+
+    /// Tries the saved passwords; true if one of them unlocked the open folder.
+    func unlockWithSavedPassword() async -> Bool {
+        for password in savedPasswords {
+            do {
+                try await unlock(password: password, remember: false)
+                return true
+            } catch {
+                continue
+            }
+        }
+        return false
+    }
+
+    var hasRememberedPassword: Bool {
+        guard let folder = currentCryptFolder else { return false }
+        return CryptKeychain.password(CryptKeychain.folderAccount(folder.plainTarget)) != nil
+    }
+
+    /// Locks an unlocked encrypted backup: forgets its key, removes decrypted copies cached on this
+    /// Mac, and returns to the folder itself if the browser is inside it.
+    func lock(_ folder: CryptFolder, forgetPassword: Bool = false) async {
+        guard unlockedFolders.removeValue(forKey: folder.plainTarget) != nil else { return }
+        CryptAliases.shared.unregister(folder)
+        if forgetPassword { CryptKeychain.delete(CryptKeychain.folderAccount(folder.plainTarget)) }
+        listCache = listCache.filter { !$0.key.hasPrefix(folder.alias + ":") }
+        FileCache.removeFolder(remote: folder.remote + " (encrypted)", path: folder.path)
+        if quickLookURL != nil { quickLookURL = nil }
+        if selectedRemoteName == folder.remote {
+            let inside = { (p: String) in Self.isInside(p, folder.path) && p != folder.path }
+            backStack.removeAll(where: inside)
+            forwardStack.removeAll(where: inside)
+            if Self.isInside(path, folder.path) {
+                path = folder.path
+                selection.removeAll()
+                searchText = ""
+            }
+        }
+        await Crypt.forgetOpenFolders()
+        await reload()
+    }
+
+    /// A new backup task for the open folder; inside an encrypted backup it targets the backup itself.
+    func backupTaskForCurrentFolder() -> SyncTask {
+        let remote = selectedRemoteName ?? remotes.first?.name ?? ""
+        let encryptedRoot = currentCryptFolder?.path ?? (isLockedHere ? path : nil)
+        let folderPath = selectedRemoteName == nil ? "" : (encryptedRoot ?? path)
+        let name = folderPath.split(separator: "/").last.map(String.init) ?? remote
+        var task = SyncTask(name: name, localPath: "", remote: remote, remotePath: folderPath, mode: .upload)
+        task.encrypted = encryptedRoot != nil
+        return task
     }
 
     // MARK: Remotes management
