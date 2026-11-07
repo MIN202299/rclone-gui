@@ -73,22 +73,6 @@
         }
       }
     },
-    "%@ sync with %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ sync with %2$@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@同步：%2$@"
-          }
-        }
-      }
-    },
     "%@ used": {
       "localizations": {
         "zh-Hans": {
@@ -149,12 +133,12 @@
         }
       }
     },
-    "%lld more sync tasks": {
+    "%lld more backup tasks": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "另外 %lld 个同步任务"
+            "value": "还有 %lld 个备份任务"
           }
         }
       }
@@ -282,22 +266,22 @@
         }
       }
     },
+    "A backup task copies new and changed files between a local folder and a remote folder — once, on a schedule, or whenever local files change. It never deletes anything.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "备份任务会在本地文件夹和远端文件夹之间复制新增和修改过的文件，可以只运行一次、定时运行，或在本地文件变化时运行。它不会删除任何文件。"
+          }
+        }
+      }
+    },
     "A remote with this name already exists.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "已存在同名的远程存储。"
-          }
-        }
-      }
-    },
-    "A sync task keeps a local folder and a remote folder in step — once, on a schedule, or whenever local files change.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "同步任务让本地文件夹与远程文件夹保持一致——可以手动运行一次、按计划运行，或在本地文件变化时自动运行。"
           }
         }
       }
@@ -332,7 +316,7 @@
         }
       }
     },
-    "Already in sync": {
+    "Already up to date": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -342,22 +326,22 @@
         }
       }
     },
-    "Also sync when local files change": {
+    "Also back up when local files change": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "本地文件变化时也同步"
+            "value": "本地文件变化时也备份"
           }
         }
       }
     },
-    "Automatic sync runs while Rclone is open, including when only its menu bar icon is showing.": {
+    "Automatic backups run while Rclone is open, including when only its menu bar icon is showing.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "自动同步在 Rclone 运行时进行，包括只显示菜单栏图标时。"
+            "value": "自动备份在 Rclone 打开时运行，只显示菜单栏图标时也会运行。"
           }
         }
       }
@@ -368,6 +352,122 @@
           "stringUnit": {
             "state": "translated",
             "value": "后退"
+          }
+        }
+      }
+    },
+    "Back Up Now": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "立即备份"
+          }
+        }
+      }
+    },
+    "Back Up “%@” Now": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "立即备份「%@」"
+          }
+        }
+      }
+    },
+    "Back up automatically": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动备份"
+          }
+        }
+      }
+    },
+    "Back up this folder to or from a local folder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把此文件夹备份到本地文件夹，或从本地文件夹备份到这里"
+          }
+        }
+      }
+    },
+    "Backed up %@ · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Backed up %1$@ · %2$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@备份 · %2$@"
+          }
+        }
+      }
+    },
+    "Backed up from %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从 %@ 备份"
+          }
+        }
+      }
+    },
+    "Backed up to %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "备份到 %@"
+          }
+        }
+      }
+    },
+    "Backing up “%@”": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在备份「%@」"
+          }
+        }
+      }
+    },
+    "Backup": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "备份"
+          }
+        }
+      }
+    },
+    "Backup Tasks": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "备份任务"
+          }
+        }
+      }
+    },
+    "Backup Tasks…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "备份任务…"
           }
         }
       }
@@ -408,16 +508,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "已取消"
-          }
-        }
-      }
-    },
-    "Changes on either side, including deletions, are copied to the other side. If a file changed on both sides, the newer one wins and the other is kept with a numbered name. The first run merges both folders without deleting anything.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "任一侧的更改（包括删除）都会同步到另一侧。如果同一文件在两侧都被修改，保留较新的版本，另一个以带编号的名称保留。首次运行会合并两个文件夹，不删除任何内容。"
           }
         }
       }
@@ -532,12 +622,12 @@
         }
       }
     },
-    "Choose the local folder to keep in sync with %@": {
+    "Choose the local folder for this backup": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择要与 %@ 保持同步的本地文件夹"
+            "value": "选择此备份使用的本地文件夹"
           }
         }
       }
@@ -682,6 +772,26 @@
         }
       }
     },
+    "Copies new and changed files from the local folder to the remote folder. Nothing is ever deleted: files you delete locally stay on the remote, and the local folder is never changed.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把本地文件夹中新增和修改过的文件复制到远端文件夹。不会删除任何文件：本地删除的文件仍保留在远端，本地文件夹也不会被改动。"
+          }
+        }
+      }
+    },
+    "Copies new and changed files from the remote folder to the local folder. Nothing is ever deleted: files deleted on the remote stay in the local folder, and the remote is never changed.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把远端文件夹中新增和修改过的文件复制到本地文件夹。不会删除任何文件：远端删除的文件仍保留在本地，远端也不会被改动。"
+          }
+        }
+      }
+    },
     "Copy Path": {
       "localizations": {
         "zh-Hans": {
@@ -718,16 +828,6 @@
         }
       }
     },
-    "Couldn't prepare the two-way sync state folder.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法准备双向同步的状态文件夹。"
-          }
-        }
-      }
-    },
     "Couldn't read the latest rclone version from rclone.org.": {
       "localizations": {
         "zh-Hans": {
@@ -748,12 +848,12 @@
         }
       }
     },
-    "Create and Sync Now": {
+    "Create and Back Up Now": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "创建并立即同步"
+            "value": "创建并立即备份"
           }
         }
       }
@@ -1274,16 +1374,6 @@
         }
       }
     },
-    "Keep this folder in sync with a local folder": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "让此文件夹与本地文件夹保持同步"
-          }
-        }
-      }
-    },
     "Language": {
       "localizations": {
         "zh-Hans": {
@@ -1364,26 +1454,6 @@
         }
       }
     },
-    "Makes the local folder an exact copy of the remote folder. Files deleted on the remote are also deleted locally.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "让本地文件夹与远程文件夹完全一致。在远程上删除的文件也会在本地删除。"
-          }
-        }
-      }
-    },
-    "Makes the remote folder an exact copy of the local folder. Files you delete locally are also deleted on the remote.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "让远程文件夹与本地文件夹完全一致。在本地删除的文件也会在远程上删除。"
-          }
-        }
-      }
-    },
     "Manage…": {
       "localizations": {
         "zh-Hans": {
@@ -1420,16 +1490,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "最大缓存大小"
-          }
-        }
-      }
-    },
-    "Merges both folders again without deleting anything, then resumes normal two-way sync.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重新合并两个文件夹（不删除任何内容），然后恢复正常的双向同步。"
           }
         }
       }
@@ -1494,6 +1554,36 @@
         }
       }
     },
+    "New Backup Task": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建备份任务"
+          }
+        }
+      }
+    },
+    "New Backup Task for This Folder…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为此文件夹新建备份任务…"
+          }
+        }
+      }
+    },
+    "New Backup Task…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建备份任务…"
+          }
+        }
+      }
+    },
     "New Folder": {
       "localizations": {
         "zh-Hans": {
@@ -1514,32 +1604,12 @@
         }
       }
     },
-    "New Sync Task": {
+    "No Backup Tasks": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新建同步任务"
-          }
-        }
-      }
-    },
-    "New Sync Task for This Folder…": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "为此文件夹新建同步任务…"
-          }
-        }
-      }
-    },
-    "New Sync Task…": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新建同步任务…"
+            "value": "没有备份任务"
           }
         }
       }
@@ -1550,16 +1620,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "未选择远程存储"
-          }
-        }
-      }
-    },
-    "No Sync Tasks": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "没有同步任务"
           }
         }
       }
@@ -1594,22 +1654,22 @@
         }
       }
     },
+    "Not backed up yet": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未备份"
+          }
+        }
+      }
+    },
     "Not found": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "未找到"
-          }
-        }
-      }
-    },
-    "Not synced yet": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "尚未同步"
           }
         }
       }
@@ -1654,12 +1714,12 @@
         }
       }
     },
-    "Only the sync task is removed. Files in both folders stay as they are.": {
+    "Only the backup task is removed. Files in both folders stay as they are.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "只会移除同步任务，两个文件夹中的文件保持不变。"
+            "value": "只会删除备份任务，两边文件夹里的文件都保持不变。"
           }
         }
       }
@@ -1774,12 +1834,12 @@
         }
       }
     },
-    "Pause Automatic Sync": {
+    "Pause Automatic Backups": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "暂停自动同步"
+            "value": "暂停自动备份"
           }
         }
       }
@@ -1834,28 +1894,18 @@
         }
       }
     },
-    "Quitting stops them now. Interrupted syncs can be run again later; uploads and downloads have to be started again.": {
+    "Quitting stops them now. Interrupted backups can be run again later; uploads and downloads have to be started again.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "退出会立即停止这些任务。中断的同步之后可以再次运行；上传和下载需要重新开始。"
+            "value": "退出会立即停止它们。中断的备份之后可以再次运行；上传和下载需要重新开始。"
           }
         }
       }
     },
     "Rclone": {
       "shouldTranslate": false
-    },
-    "Rebuild Two-way Baseline": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重建双向同步基线"
-          }
-        }
-      }
     },
     "Recommended": {
       "localizations": {
@@ -2017,12 +2067,12 @@
         }
       }
     },
-    "Resume Automatic Sync": {
+    "Resume Automatic Backups": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "恢复自动同步"
+            "value": "恢复自动备份"
           }
         }
       }
@@ -2157,26 +2207,6 @@
         }
       }
     },
-    "Skipped: the local folder is empty, so syncing would delete everything on the remote.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已跳过：本地文件夹为空，同步会删除远程上的所有内容。"
-          }
-        }
-      }
-    },
-    "Skipped: the remote folder is empty, so syncing would delete everything in the local folder.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已跳过：远程文件夹为空，同步会删除本地文件夹中的所有内容。"
-          }
-        }
-      }
-    },
     "Something went wrong": {
       "localizations": {
         "zh-Hans": {
@@ -2203,92 +2233,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "停止"
-          }
-        }
-      }
-    },
-    "Sync": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "同步"
-          }
-        }
-      }
-    },
-    "Sync Now": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "立即同步"
-          }
-        }
-      }
-    },
-    "Sync Tasks": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "同步任务"
-          }
-        }
-      }
-    },
-    "Sync Tasks…": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "同步任务…"
-          }
-        }
-      }
-    },
-    "Sync automatically": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自动同步"
-          }
-        }
-      }
-    },
-    "Sync “%@” Now": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "立即同步“%@”"
-          }
-        }
-      }
-    },
-    "Synced %@ · %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Synced %1$@ · %2$@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@已同步 · %2$@"
-          }
-        }
-      }
-    },
-    "Syncing “%@”": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在同步“%@”"
           }
         }
       }
@@ -2353,16 +2297,6 @@
         }
       }
     },
-    "The remote folder path is too long for two-way sync (an rclone limit). Choose a shorter remote folder, or use one-way sync.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "远程文件夹路径过长，无法进行双向同步（rclone 的限制）。请选择较短的远程文件夹，或使用单向同步。"
-          }
-        }
-      }
-    },
     "This app uses the free, open-source rclone tool to talk to your cloud storage. It isn't installed on this Mac yet. Pick one way to get it:": {
       "localizations": {
         "zh-Hans": {
@@ -2419,16 +2353,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "重试"
-          }
-        }
-      }
-    },
-    "Two-way": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "双向"
           }
         }
       }

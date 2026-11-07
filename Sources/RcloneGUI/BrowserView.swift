@@ -234,7 +234,7 @@ struct BrowserView: View {
                 .help("Forward")
         }
         // One visual language: plain outline SF Symbols at the same weight, no circles or menu
-        // chevrons, grouped by purpose (create/move files · sync · destructive · view).
+        // chevrons, grouped by purpose (create/move files · backup · destructive · view).
         ToolbarItemGroup(placement: .primaryAction) {
             Button { newFolderName = ""; showingNewFolder = true } label: {
                 Label("New Folder", systemImage: "folder.badge.plus")
@@ -248,7 +248,7 @@ struct BrowserView: View {
             .disabled(model.selection.isEmpty)
             .help("Download selected items")
             Menu {
-                Button("New Sync Task for This Folder…") {
+                Button("New Backup Task for This Folder…") {
                     let name = model.pathComponents.last ?? model.selectedRemoteName ?? ""
                     newSyncTask = SyncTask(name: name, localPath: "", remote: model.selectedRemoteName ?? "",
                                            remotePath: model.path, mode: .upload)
@@ -257,18 +257,18 @@ struct BrowserView: View {
                 if !here.isEmpty {
                     Divider()
                     ForEach(here) { task in
-                        Button("Sync “\(task.name)” Now") { sync.run(task.id) }
+                        Button("Back Up “\(task.name)” Now") { sync.run(task.id) }
                             .disabled(sync.isRunning(task.id) || task.paused)
                     }
                 }
                 Divider()
-                Button("Sync Tasks…") { openWindow(id: "sync") }
+                Button("Backup Tasks…") { openWindow(id: "sync") }
             } label: {
-                Label("Sync", systemImage: "arrow.triangle.2.circlepath.icloud")
+                Label("Backup", systemImage: "externaldrive.badge.timemachine")
             }
             .menuIndicator(.hidden)
-            .accessibilityLabel("Sync")
-            .help("Keep this folder in sync with a local folder")
+            .accessibilityLabel("Backup")
+            .help("Back up this folder to or from a local folder")
         }
         ToolbarItemGroup(placement: .primaryAction) {
             Button { pendingDelete = model.selectedEntries } label: { Label("Delete", systemImage: "trash") }

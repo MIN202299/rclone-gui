@@ -17,7 +17,7 @@ struct RcloneGUIApp: App {
                     QuitGuard.model = model
                     sync.onTransferStarted = { [model] in model.adoptTransfer($0) }
                     sync.onTaskFinished = { [model] task in
-                        // Refresh the open folder if this sync changed it.
+                        // Refresh the open folder if this backup changed it.
                         if model.target() == task.remoteTarget { Task { await model.reload() } }
                     }
                     await model.loadRemotes()
@@ -40,7 +40,7 @@ struct RcloneGUIApp: App {
                     .keyboardShortcut(.upArrow)
                     .disabled(model.path.isEmpty)
                 Divider()
-                Button("Sync Tasks") { MainWindow.openSync?() }
+                Button("Backup Tasks") { MainWindow.openSync?() }
                     .keyboardShortcut("s", modifiers: [.command, .shift])
                 Divider()
                 Button("Quick Look") { model.toggleQuickLook() }
@@ -49,7 +49,7 @@ struct RcloneGUIApp: App {
             }
         }
 
-        Window("Sync Tasks", id: "sync") {
+        Window("Backup Tasks", id: "sync") {
             SyncTasksView()
                 .environment(model)
                 .environment(sync)

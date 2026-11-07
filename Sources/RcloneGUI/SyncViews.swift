@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - Status
 
-/// One-line status for a sync task: progress while running, otherwise the last result.
+/// One-line status for a backup task: progress while running, otherwise the last result.
 struct SyncStatusLine: View {
     let task: SyncTask
     @Environment(SyncManager.self) private var sync
@@ -23,7 +23,7 @@ struct SyncStatusLine: View {
         } else if let last = task.lastRun {
             let ok = task.lastSuccess == true
             Label {
-                Text(ok ? String(localized: "Synced \(last.formatted(.relative(presentation: .named))) · \(task.lastMessage ?? "")")
+                Text(ok ? String(localized: "Backed up \(last.formatted(.relative(presentation: .named))) · \(task.lastMessage ?? "")")
                         : (task.lastMessage ?? String(localized: "Failed")))
                     .lineLimit(2)
                     .help(task.lastMessage ?? "")
@@ -32,7 +32,7 @@ struct SyncStatusLine: View {
             }
             .foregroundStyle(ok ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
         } else {
-            Label("Not synced yet", systemImage: "clock").foregroundStyle(.secondary)
+            Label("Not backed up yet", systemImage: "clock").foregroundStyle(.secondary)
         }
     }
 }
@@ -50,7 +50,7 @@ struct SyncTaskIcon: View {
     }
 }
 
-// MARK: - Sync Tasks window
+// MARK: - Backup Tasks window
 
 struct SyncTasksView: View {
     @Environment(SyncManager.self) private var sync
@@ -63,11 +63,11 @@ struct SyncTasksView: View {
         Group {
             if sync.tasks.isEmpty {
                 ContentUnavailableView {
-                    Label("No Sync Tasks", systemImage: "arrow.triangle.2.circlepath")
+                    Label("No Backup Tasks", systemImage: "externaldrive.badge.timemachine")
                 } description: {
-                    Text("A sync task keeps a local folder and a remote folder in step — once, on a schedule, or whenever local files change.")
+                    Text("A backup task copies new and changed files between a local folder and a remote folder — once, on a schedule, or whenever local files change. It never deletes anything.")
                 } actions: {
-                    Button("New Sync Task…") { editing = newTask() }
+                    Button("New Backup Task…") { editing = newTask() }
                         .buttonStyle(.borderedProminent)
                 }
             } else {
@@ -82,11 +82,11 @@ struct SyncTasksView: View {
         .frame(minWidth: 620, minHeight: 580)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { editing = newTask() } label: { Label("New Sync Task", systemImage: "plus") }
-                    .help("New Sync Task")
+                Button { editing = newTask() } label: { Label("New Backup Task", systemImage: "plus") }
+                    .help("New Backup Task")
             }
         }
-        .navigationTitle("Sync Tasks")
+        .navigationTitle("Backup Tasks")
         .sheet(item: $editing) { task in
             SyncTaskEditor(task: task, isNew: sync.task(task.id) == nil)
         }
@@ -95,7 +95,7 @@ struct SyncTasksView: View {
                             presenting: deleting) { task in
             Button("Delete Task", role: .destructive) { sync.delete(task.id) }
         } message: { _ in
-            Text("Only the sync task is removed. Files in both folders stay as they are.")
+            Text("Only the backup task is removed. Files in both folders stay as they are.")
         }
     }
 
@@ -137,23 +137,18 @@ private struct SyncTaskRow: View {
                 }
                 .font(.caption)
                 SyncStatusLine(task: task).font(.caption)
-                if sync.needsRepair.contains(task.id) {
-                    Button("Rebuild Two-way Baseline") { sync.repair(task.id) }
-                        .controlSize(.small)
-                        .help("Merges both folders again without deleting anything, then resumes normal two-way sync.")
-                }
             }
             Spacer(minLength: 8)
             HStack(spacing: 6) {
                 if sync.isRunning(task.id) {
                     Button("Stop") { sync.cancel(task.id) }
                 } else {
-                    Button("Sync Now") { sync.run(task.id) }
+                    Button("Back Up Now") { sync.run(task.id) }
                         .disabled(task.paused)
                 }
                 Menu {
                     Button("Edit…", action: edit)
-                    Button(task.paused ? "Resume Automatic Sync" : "Pause Automatic Sync") {
+                    Button(task.paused ? "Resume Automatic Backups" : "Pause Automatic Backups") {
                         sync.setPaused(task.id, !task.paused)
                     }
                     Divider()
@@ -177,7 +172,7 @@ private struct SyncTaskRow: View {
         }
         .padding(.vertical, 6)
         .contextMenu {
-            Button("Sync Now") { sync.run(task.id) }.disabled(sync.isRunning(task.id) || task.paused)
+            Button("Back Up Now") { sync.run(task.id) }.disabled(sync.isRunning(task.id) || task.paused)
             Button("Edit…", action: edit)
             Button("Delete Task…", role: .destructive, action: delete)
         }
@@ -222,21 +217,21 @@ struct SyncTaskEditor: View {
                     .pickerStyle(.segmented)
                     Text(task.mode.explanation)
                         .font(.callout)
-                        .foregroundStyle(task.mode == .twoWay ? AnyShapeStyle(.secondary) : AnyShapeStyle(.orange))
+                        .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } header: {
                     Text("Direction")
                 }
                 Section {
-                    Picker("Sync automatically", selection: $task.intervalMinutes) {
+                    Picker("Back up automatically", selection: $task.intervalMinutes) {
                         ForEach(SyncTask.intervalChoices, id: \.minutes) { Text($0.label).tag($0.minutes) }
                     }
-                    Toggle("Also sync when local files change", isOn: $task.watchLocal)
+                    Toggle("Also back up when local files change", isOn: $task.watchLocal)
                         .disabled(task.mode == .download)
                 } header: {
                     Text("Schedule")
                 } footer: {
-                    Text("Automatic sync runs while Rclone is open, including when only its menu bar icon is showing.")
+                    Text("Automatic backups run while Rclone is open, including when only its menu bar icon is showing.")
                         .formFooter()
                 }
             }
@@ -248,7 +243,7 @@ struct SyncTaskEditor: View {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(isNew ? "Create and Sync Now" : "Save") {
+                Button(isNew ? "Create and Back Up Now" : "Save") {
                     task.name = task.name.trimmingCharacters(in: .whitespaces)
                     task.remotePath = task.remotePath.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
                     sync.save(task)
@@ -276,7 +271,7 @@ struct SyncTaskEditor: View {
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
         panel.prompt = String(localized: "Choose")
-        panel.message = String(localized: "Choose the local folder to keep in sync with \(task.remoteTarget)")
+        panel.message = String(localized: "Choose the local folder for this backup")
         if !task.localPath.isEmpty { panel.directoryURL = task.localURL }
         guard panel.runModal() == .OK, let url = panel.url else { return }
         task.localPath = url.path
@@ -286,7 +281,7 @@ struct SyncTaskEditor: View {
 
 // MARK: - Browser banner
 
-/// Shown above the file list when the open folder belongs to a sync task.
+/// Shown above the file list when the open folder belongs to a backup task.
 struct SyncBanner: View {
     let task: SyncTask
     @Environment(SyncManager.self) private var sync
@@ -297,7 +292,9 @@ struct SyncBanner: View {
             Image(systemName: task.mode.symbol).foregroundStyle(.tint)
                 .symbolEffect(.pulse, isActive: sync.isRunning(task.id))
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(task.mode.title) sync with \(SyncManager.displayPath(task.localPath))")
+                Text(task.mode == .upload
+                     ? String(localized: "Backed up from \(SyncManager.displayPath(task.localPath))")
+                     : String(localized: "Backed up to \(SyncManager.displayPath(task.localPath))"))
                     .lineLimit(1).truncationMode(.middle)
                 SyncStatusLine(task: task).font(.caption)
             }
@@ -305,7 +302,7 @@ struct SyncBanner: View {
             if sync.isRunning(task.id) {
                 Button("Stop") { sync.cancel(task.id) }
             } else {
-                Button("Sync Now") { sync.run(task.id) }.disabled(task.paused)
+                Button("Back Up Now") { sync.run(task.id) }.disabled(task.paused)
             }
             Button("Manage…") { openWindow(id: "sync") }
         }

@@ -2,19 +2,24 @@ import CoreServices
 import Foundation
 import Observation
 
-/// A saved pairing of a local folder with a remote folder that can be synced again and again.
+/// A saved pairing of a local folder with a remote folder that can be backed up again and again.
+/// Backups only copy new and changed files (`rclone copy`); they never delete anything.
 struct SyncTask: Codable, Identifiable, Hashable {
     enum Mode: String, Codable, CaseIterable, Identifiable {
-        case upload    // local → remote mirror
-        case download  // remote → local mirror
-        case twoWay    // rclone bisync
+        case upload    // local → remote
+        case download  // remote → local
         var id: String { rawValue }
+
+        /// Tasks saved by older versions may say "twoWay"; they become upload backups.
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Mode(rawValue: raw) ?? .upload
+        }
 
         var title: String {
             switch self {
             case .upload: return String(localized: "Upload")
             case .download: return String(localized: "Download")
-            case .twoWay: return String(localized: "Two-way")
             }
         }
 
@@ -22,7 +27,6 @@ struct SyncTask: Codable, Identifiable, Hashable {
             switch self {
             case .upload: return "icloud.and.arrow.up"
             case .download: return "icloud.and.arrow.down"
-            case .twoWay: return "arrow.triangle.2.circlepath"
             }
         }
 
@@ -30,18 +34,15 @@ struct SyncTask: Codable, Identifiable, Hashable {
             switch self {
             case .upload: return "→"
             case .download: return "←"
-            case .twoWay: return "⇄"
             }
         }
 
         var explanation: String {
             switch self {
             case .upload:
-                return String(localized: "Makes the remote folder an exact copy of the local folder. Files you delete locally are also deleted on the remote.")
+                return String(localized: "Copies new and changed files from the local folder to the remote folder. Nothing is ever deleted: files you delete locally stay on the remote, and the local folder is never changed.")
             case .download:
-                return String(localized: "Makes the local folder an exact copy of the remote folder. Files deleted on the remote are also deleted locally.")
-            case .twoWay:
-                return String(localized: "Changes on either side, including deletions, are copied to the other side. If a file changed on both sides, the newer one wins and the other is kept with a numbered name. The first run merges both folders without deleting anything.")
+                return String(localized: "Copies new and changed files from the remote folder to the local folder. Nothing is ever deleted: files deleted on the remote stay in the local folder, and the remote is never changed.")
             }
         }
     }
@@ -52,17 +53,15 @@ struct SyncTask: Codable, Identifiable, Hashable {
     var remote: String
     var remotePath: String
     var mode: Mode
-    /// 0 = only when you click Sync Now.
+    /// 0 = only when you click Back Up Now.
     var intervalMinutes: Int = 0
-    /// Also sync shortly after files in the local folder change (upload / two-way).
+    /// Also back up shortly after files in the local folder change (upload only).
     var watchLocal = false
     var paused = false
 
     var lastRun: Date?
     var lastSuccess: Bool?
     var lastMessage: String?
-    /// Two-way only: whether bisync's baseline exists; otherwise the next run uses --resync.
-    var baselineReady = false
 
     var remoteTarget: String { "\(remote):\(remotePath)" }
     var localURL: URL { URL(fileURLWithPath: localPath, isDirectory: true) }
@@ -93,18 +92,16 @@ struct SyncTask: Codable, Identifiable, Hashable {
     }
 }
 
-/// Stores sync tasks, runs them on demand, on a schedule, or when local files change.
+/// Stores backup tasks, runs them on demand, on a schedule, or when local files change.
 @Observable @MainActor
 final class SyncManager {
     static let shared = SyncManager()
 
     private(set) var tasks: [SyncTask] = []
-    /// Transfers of tasks that are syncing right now.
+    /// Transfers of tasks that are backing up right now.
     private(set) var running: [UUID: Transfer] = [:]
-    /// Tasks whose last two-way run needs its baseline rebuilt.
-    private(set) var needsRepair: Set<UUID> = []
 
-    /// Hooks so the main window can list sync transfers and refresh affected folders.
+    /// Hooks so the main window can list backup transfers and refresh affected folders.
     @ObservationIgnored var onTransferStarted: ((Transfer) -> Void)?
     @ObservationIgnored var onTaskFinished: ((SyncTask) -> Void)?
 
@@ -121,6 +118,7 @@ final class SyncManager {
 
     private init() {
         load()
+        removeTwoWayLeftovers()
         refreshWatchers()
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
             MainActor.assumeIsolated { SyncManager.shared.runDueTasks() }
@@ -145,15 +143,9 @@ final class SyncManager {
 
     // MARK: Editing
 
-    /// Adds or updates a task. Changing a two-way task's folders resets its baseline.
+    /// Adds or updates a task.
     func save(_ task: SyncTask) {
-        var task = task
         if let i = tasks.firstIndex(where: { $0.id == task.id }) {
-            let old = tasks[i]
-            if old.localPath != task.localPath || old.remoteTarget != task.remoteTarget || old.mode != task.mode {
-                task.baselineReady = false
-                resetBisyncState(task)
-            }
             tasks[i] = task
         } else {
             tasks.append(task)
@@ -163,10 +155,9 @@ final class SyncManager {
     }
 
     func delete(_ id: UUID) {
-        guard let task = task(id) else { return }
+        guard task(id) != nil else { return }
         running[id]?.cancel()
         tasks.removeAll { $0.id == id }
-        resetBisyncState(task)
         persist()
         refreshWatchers()
     }
@@ -186,17 +177,8 @@ final class SyncManager {
 
     func cancel(_ id: UUID) { running[id]?.cancel() }
 
-    /// Stops every running sync (used when the app quits, so no rclone keeps running unseen).
+    /// Stops every running backup (used when the app quits, so no rclone keeps running unseen).
     func cancelAll() { running.values.forEach { $0.cancel() } }
-
-    /// Rebuilds a two-way task's baseline (merges both sides without deleting) and syncs.
-    func repair(_ id: UUID) {
-        guard let task = task(id) else { return }
-        resetBisyncState(task)
-        update(id) { $0.baselineReady = false }
-        needsRepair.remove(id)
-        run(id)
-    }
 
     func run(_ id: UUID, automatic: Bool = false) {
         guard let task = task(id), running[id] == nil else { return }
@@ -209,53 +191,21 @@ final class SyncManager {
             return
         }
 
-        Task {
-            // Safety: never mirror an empty source over a full destination.
-            if task.mode == .upload, (try? FileManager.default.contentsOfDirectory(atPath: task.localPath))?
-                .filter({ !$0.hasPrefix(".") }).isEmpty ?? true {
-                record(id, success: false, message: String(localized: "Skipped: the local folder is empty, so syncing would delete everything on the remote."))
-                return
-            }
-            if task.mode == .download,
-               let list = try? await RcloneDaemon.shared.list(remote: task.remote, path: task.remotePath), list.isEmpty {
-                record(id, success: false, message: String(localized: "Skipped: the remote folder is empty, so syncing would delete everything in the local folder."))
-                return
-            }
-            if task.mode == .download && !localExists {
-                try? FileManager.default.createDirectory(atPath: task.localPath, withIntermediateDirectories: true)
-            }
-            start(task)
+        if task.mode == .download && !localExists {
+            try? FileManager.default.createDirectory(atPath: task.localPath, withIntermediateDirectories: true)
         }
+        start(task)
     }
 
     private func start(_ task: SyncTask) {
         guard running[task.id] == nil else { return }
+        // `copy` never deletes from the destination, so emptied or missing files never spread.
         let args: [String]
         switch task.mode {
         case .upload:
-            args = ["sync", task.localPath, task.remoteTarget, "--create-empty-src-dirs"]
+            args = ["copy", task.localPath, task.remoteTarget, "--create-empty-src-dirs"]
         case .download:
-            args = ["sync", task.remoteTarget, task.localPath, "--create-empty-src-dirs"]
-        case .twoWay:
-            guard let link = bisyncLink(for: task) else {
-                record(task.id, success: false, message: String(localized: "Couldn't prepare the two-way sync state folder."))
-                return
-            }
-            // bisync's state file is named "<path1>..<path2>.path1.lst" and must fit in 255 bytes.
-            let stateName = (link.path.dropFirst() + ".." + task.remoteTarget + ".path1.lst")
-                .replacingOccurrences(of: "/", with: "_")
-            if stateName.utf8.count > 250 {
-                record(task.id, success: false,
-                       message: String(localized: "The remote folder path is too long for two-way sync (an rclone limit). Choose a shorter remote folder, or use one-way sync."))
-                return
-            }
-            var a = ["bisync", link.path, task.remoteTarget,
-                     "--resilient", "--recover", "--max-lock", "2m",
-                     "--conflict-resolve", "newer", "--conflict-loser", "num",
-                     "--compare", "size,modtime", "--create-empty-src-dirs",
-                     "--workdir", bisyncWorkdir(for: task).path]
-            if !task.baselineReady { a += ["--resync", "--resync-mode", "newer"] }
-            args = a
+            args = ["copy", task.remoteTarget, task.localPath, "--create-empty-src-dirs"]
         }
 
         let t = Transfer(kind: .sync, title: task.name,
@@ -269,13 +219,8 @@ final class SyncManager {
             self.cooldownUntil[task.id] = Date().addingTimeInterval(8) // ignore our own local writes
             switch t.state {
             case .done:
-                self.update(task.id) { $0.baselineReady = true }
-                self.needsRepair.remove(task.id)
                 self.record(task.id, success: true, message: Self.summary(t))
             case .failed(let message):
-                if task.mode == .twoWay && message.localizedCaseInsensitiveContains("resync") {
-                    self.needsRepair.insert(task.id)
-                }
                 self.record(task.id, success: false, message: message)
             case .cancelled:
                 self.record(task.id, success: false, message: String(localized: "Cancelled"))
@@ -301,8 +246,7 @@ final class SyncManager {
             parts.append(t.totalFiles == 1 ? String(localized: "1 file copied") : String(localized: "\(t.totalFiles) files copied"))
         }
         if t.totalBytes > 0 { parts.append(t.totalBytes.byteString) }
-        if t.deletes > 0 { parts.append(String(localized: "\(t.deletes) deleted")) }
-        return parts.isEmpty ? String(localized: "Already in sync") : parts.joined(separator: " · ")
+        return parts.isEmpty ? String(localized: "Already up to date") : parts.joined(separator: " · ")
     }
 
     static func displayPath(_ path: String) -> String {
@@ -310,32 +254,11 @@ final class SyncManager {
         return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
     }
 
-    // MARK: Two-way state
-
-    /// bisync names its state files after both paths, which can exceed macOS's 255-byte file name
-    /// limit; syncing through a short symlink to the local folder keeps them short.
-    private func bisyncLink(for task: SyncTask) -> URL? {
-        let fm = FileManager.default
-        let dir = Self.supportDir.appendingPathComponent("sync-links", isDirectory: true)
-        let link = dir.appendingPathComponent(task.shortID)
-        do {
-            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-            if (try? fm.destinationOfSymbolicLink(atPath: link.path)) != task.localPath {
-                try? fm.removeItem(at: link)
-                try fm.createSymbolicLink(atPath: link.path, withDestinationPath: task.localPath)
-            }
-            return link
-        } catch {
-            return nil
+    /// Removes the state folders that two-way sync (no longer offered) kept for each task.
+    private func removeTwoWayLeftovers() {
+        for name in ["bisync", "sync-links"] {
+            try? FileManager.default.removeItem(at: Self.supportDir.appendingPathComponent(name, isDirectory: true))
         }
-    }
-
-    private func bisyncWorkdir(for task: SyncTask) -> URL {
-        Self.supportDir.appendingPathComponent("bisync/\(task.shortID)", isDirectory: true)
-    }
-
-    private func resetBisyncState(_ task: SyncTask) {
-        try? FileManager.default.removeItem(at: bisyncWorkdir(for: task))
     }
 
     // MARK: Automation

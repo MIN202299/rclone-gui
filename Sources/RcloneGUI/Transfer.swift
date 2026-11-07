@@ -57,7 +57,7 @@ final class Transfer: Identifiable {
         case .download: return "arrow.down.circle"
         case .open: return "eye.circle"
         case .copy: return "doc.on.doc"
-        case .sync: return "arrow.triangle.2.circlepath"
+        case .sync: return "externaldrive.badge.timemachine"
         }
     }
 
@@ -75,7 +75,7 @@ final class Transfer: Identifiable {
             return s
         case .done:
             var s = totalBytes > 0 ? String(localized: "Completed · \(totalBytes.byteString)")
-                : kind == .sync ? String(localized: "Already in sync") : String(localized: "Completed")
+                : kind == .sync ? String(localized: "Already up to date") : String(localized: "Completed")
             if totalFiles > 0 { s += " · " + (totalFiles == 1 ? String(localized: "1 file") : String(localized: "\(totalFiles) files")) }
             if deletes > 0 { s += " · " + String(localized: "\(deletes) deleted") }
             return s

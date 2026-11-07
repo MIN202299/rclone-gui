@@ -64,7 +64,7 @@ struct MenuBarView: View {
     private var syncSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Sync Tasks").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Text("Backup Tasks").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
                 Button("Manage…") { MainWindow.openSync?() }.buttonStyle(.borderless).font(.caption)
             }
@@ -84,7 +84,7 @@ struct MenuBarView: View {
                             .help("Stop")
                     } else {
                         Button { sync.run(task.id) } label: { Image(systemName: "arrow.clockwise.circle") }
-                            .help("Sync Now")
+                            .help("Back Up Now")
                             .disabled(task.paused)
                     }
                 }

@@ -1,6 +1,6 @@
 import AppKit
 
-/// Asks before quitting while sync tasks, uploads or downloads are running, since quitting stops them.
+/// Asks before quitting while backup tasks, uploads or downloads are running, since quitting stops them.
 @MainActor
 enum QuitGuard {
     /// Set by the app once its state exists, so uploads and downloads can be counted too.
@@ -8,7 +8,7 @@ enum QuitGuard {
     /// The user already agreed (e.g. via Restart Now), so the quit itself shouldn't ask again.
     private static var confirmed = false
 
-    /// Stops running syncs, uploads and downloads. Each runs as its own rclone process, which
+    /// Stops running backups, uploads and downloads. Each runs as its own rclone process, which
     /// would otherwise keep going after the app quits, with nothing showing or tracking it.
     static func stopAll() {
         SyncManager.shared.cancelAll()
@@ -20,12 +20,12 @@ enum QuitGuard {
         if confirmed { return true }
         let sync = SyncManager.shared
         let syncing = sync.tasks.filter { sync.isRunning($0.id) }.map(\.name)
-        // Sync jobs are listed via SyncManager; opening or previewing a file isn't worth a prompt.
+        // Backup jobs are listed via SyncManager; opening or previewing a file isn't worth a prompt.
         let transfers = model?.activeTransfers.filter { $0.kind != .sync && $0.kind != .open }.count ?? 0
         guard !syncing.isEmpty || transfers > 0 else { return true }
 
-        var lines = syncing.prefix(5).map { "• " + String(localized: "Syncing “\($0)”") }
-        if syncing.count > 5 { lines.append("• " + String(localized: "\(syncing.count - 5) more sync tasks")) }
+        var lines = syncing.prefix(5).map { "• " + String(localized: "Backing up “\($0)”") }
+        if syncing.count > 5 { lines.append("• " + String(localized: "\(syncing.count - 5) more backup tasks")) }
         if transfers > 0 {
             lines.append("• " + (transfers == 1 ? String(localized: "1 upload or download")
                                                 : String(localized: "\(transfers) uploads or downloads")))
@@ -35,7 +35,7 @@ enum QuitGuard {
         alert.alertStyle = .warning
         alert.messageText = String(localized: "Tasks are still running. Quit Rclone?")
         alert.informativeText = lines.joined(separator: "\n") + "\n\n"
-            + String(localized: "Quitting stops them now. Interrupted syncs can be run again later; uploads and downloads have to be started again.")
+            + String(localized: "Quitting stops them now. Interrupted backups can be run again later; uploads and downloads have to be started again.")
         alert.addButton(withTitle: String(localized: "Cancel"))
         let quit = alert.addButton(withTitle: String(localized: "Quit Anyway"))
         quit.hasDestructiveAction = true
