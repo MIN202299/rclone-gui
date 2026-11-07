@@ -12,13 +12,9 @@ struct BrowserView: View {
     @State private var pendingDelete: [Entry] = []
     @State private var showingTransfers = false
     @State private var isDropTargeted = false
-    @State private var pendingSync: PendingSync?
-
-    struct PendingSync: Identifiable {
-        let id = UUID()
-        let local: URL
-        let direction: AppModel.SyncDirection
-    }
+    @State private var newSyncTask: SyncTask?
+    @Environment(SyncManager.self) private var sync
+    @Environment(\.openWindow) private var openWindow
 
     private var rows: [Entry] {
         let sorted = model.visibleEntries.sorted(using: sortOrder)
@@ -31,6 +27,10 @@ struct BrowserView: View {
         VStack(spacing: 0) {
             PathBar()
             Divider()
+            ForEach(sync.tasks(forRemoteTarget: model.target())) { task in
+                SyncBanner(task: task)
+                Divider()
+            }
             table
             Divider()
             StatusBar(showingTransfers: $showingTransfers)
@@ -64,21 +64,9 @@ struct BrowserView: View {
         } message: {
             Text("This permanently deletes the items from the remote. Folders are deleted with all their contents. This can't be undone.")
         }
-        .confirmationDialog(syncTitle, isPresented: Binding(get: { pendingSync != nil }, set: { if !$0 { pendingSync = nil } }),
-                            presenting: pendingSync) { sync in
-            Button("Start Sync", role: .destructive) {
-                model.sync(local: sync.local, direction: sync.direction)
-                showingTransfers = true
-            }
-        } message: { sync in
-            Text(sync.direction == .localToRemote
-                 ? "“\(model.target())” will be made identical to “\(sync.local.path)”. Files on the remote that aren't in the local folder will be deleted."
-                 : "“\(sync.local.path)” will be made identical to “\(model.target())”. Local files that aren't on the remote will be deleted.")
+        .sheet(item: $newSyncTask) { task in
+            SyncTaskEditor(task: task, isNew: true)
         }
-    }
-
-    private var syncTitle: String {
-        pendingSync?.direction == .localToRemote ? "Mirror local folder to remote?" : "Mirror remote folder to local?"
     }
 
     private var deleteTitle: String {
@@ -255,13 +243,26 @@ struct BrowserView: View {
             .disabled(model.selection.isEmpty)
             .help("Download selected items")
             Menu {
-                Button("Mirror a Local Folder to Here…") { chooseSyncFolder(.localToRemote) }
-                Button("Mirror This Folder to a Local Folder…") { chooseSyncFolder(.remoteToLocal) }
+                Button("New Sync Task for This Folder…") {
+                    let name = model.pathComponents.last ?? model.selectedRemoteName ?? ""
+                    newSyncTask = SyncTask(name: name, localPath: "", remote: model.selectedRemoteName ?? "",
+                                           remotePath: model.path, mode: .upload)
+                }
+                let here = sync.tasks(forRemoteTarget: model.target())
+                if !here.isEmpty {
+                    Divider()
+                    ForEach(here) { task in
+                        Button("Sync “\(task.name)” Now") { sync.run(task.id) }
+                            .disabled(sync.isRunning(task.id) || task.paused)
+                    }
+                }
+                Divider()
+                Button("Sync Tasks…") { openWindow(id: "sync") }
             } label: {
                 Label("Sync", systemImage: "arrow.triangle.2.circlepath")
             }
             .menuIndicator(.hidden)
-            .help("One-way sync between this folder and a local folder")
+            .help("Keep this folder in sync with a local folder")
         }
         ToolbarItemGroup(placement: .primaryAction) {
             Button { pendingDelete = model.selectedEntries } label: { Label("Delete", systemImage: "trash") }
@@ -294,19 +295,6 @@ struct BrowserView: View {
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
         model.upload(panel.urls)
         showingTransfers = true
-    }
-
-    private func chooseSyncFolder(_ direction: AppModel.SyncDirection) {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.prompt = "Choose"
-        panel.message = direction == .localToRemote
-            ? "Choose the local folder to mirror to \(model.target())"
-            : "Choose the local folder that will mirror \(model.target())"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        pendingSync = PendingSync(local: url, direction: direction)
     }
 
     private func chooseDownloadFolder(for items: [Entry]) {

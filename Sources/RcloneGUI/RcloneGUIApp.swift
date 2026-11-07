@@ -5,13 +5,22 @@ import SwiftUI
 struct RcloneGUIApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var model = AppModel()
+    @State private var sync = SyncManager.shared
 
     var body: some Scene {
         WindowGroup("Rclone", id: "main") {
             ContentView()
                 .environment(model)
+                .environment(sync)
                 .frame(minWidth: 820, minHeight: 480)
-                .task { await model.loadRemotes() }
+                .task {
+                    sync.onTransferStarted = { [model] in model.adoptTransfer($0) }
+                    sync.onTaskFinished = { [model] task in
+                        // Refresh the open folder if this sync changed it.
+                        if model.target() == task.remoteTarget { Task { await model.reload() } }
+                    }
+                    await model.loadRemotes()
+                }
         }
         .commands {
             CommandGroup(after: .newItem) {
@@ -30,16 +39,26 @@ struct RcloneGUIApp: App {
                     .keyboardShortcut(.upArrow)
                     .disabled(model.path.isEmpty)
                 Divider()
+                Button("Sync Tasks") { MainWindow.openSync?() }
+                    .keyboardShortcut("s", modifiers: [.command, .shift])
+                Divider()
                 Button("Quick Look") { model.toggleQuickLook() }
                     .keyboardShortcut("y")
                     .disabled(!model.isQuickLookVisible && (model.selectedEntries.count != 1 || model.selectedEntries.first?.isDir == true))
             }
         }
 
+        Window("Sync Tasks", id: "sync") {
+            SyncTasksView()
+                .environment(model)
+                .environment(sync)
+        }
+        .defaultSize(width: 760, height: 600)
+
         MenuBarExtra {
-            MenuBarView().environment(model)
+            MenuBarView().environment(model).environment(sync)
         } label: {
-            MenuBarLabel().environment(model)
+            MenuBarLabel().environment(model).environment(sync)
         }
         .menuBarExtraStyle(.window)
 
@@ -77,6 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 enum MainWindow {
     /// Set by a view that lives for the app's lifetime (the menu bar label).
     static var open: (() -> Void)?
+    static var openSync: (() -> Void)?
 
     static func show() {
         let windows = NSApp.windows.filter { $0.identifier?.rawValue.hasPrefix("main") == true }

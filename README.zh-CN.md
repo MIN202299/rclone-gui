@@ -43,7 +43,12 @@ xattr -dr com.apple.quarantine /Applications/Rclone.app
 - **文件列表中的状态标记**：已缓存且和云端一致的文件会显示绿色对勾；文件正在下载、打开或预览时，那一行会显示进度圆环和百分比。
 - **加载提示**：快速查看或打开的文件还在下载时，底部会出现一个浮动条，显示进度，并可以取消。
 - **传输面板**：实时显示进度、速度和剩余时间，可以取消任务，下载完成后可「在 Finder 中显示」。
-- **文件夹同步**：工具栏的同步菜单用 `rclone sync` 把本地文件夹单向镜像到当前远端文件夹，或者反过来。开始前会先确认，因为只存在于目标端的文件会被删除。
+- **同步任务**：把一个本地文件夹和一个远端文件夹配成一对保存下来，之后随时再次同步。可以在工具栏的同步菜单里选「New Sync Task for This Folder…」，也可以在「Sync Tasks」窗口（⇧⌘S）里创建。每个任务可以选择方向：
+  - **Upload（上传）**：远端变成本地文件夹的完整镜像，包括删除（`rclone sync`）。
+  - **Download（下载）**：本地文件夹变成远端的完整镜像，包括删除。
+  - **Two-way（双向）**：任意一边的变化（包括删除）都会同步到另一边（`rclone bisync`）。同一个文件两边都改过时，保留较新的版本，另一份加编号保留。第一次运行只合并两边，不会删除任何文件。
+
+  任务可以**手动**运行、**定时**运行（每 5 分钟到每天），也可以在**本地文件变化时**自动运行；只剩菜单栏图标时也会继续执行。「Sync Tasks」窗口、菜单栏面板，以及已同步文件夹上方的横幅，都会显示每个任务的上次结果和实时进度，可以「Sync Now（立即同步）」、停止、暂停或编辑。安全保护：单向同步的源文件夹为空时会跳过本次同步，避免硬盘没接上或文件夹被清空时把另一边全部删掉；双向同步如果要删除超过一半的文件也会停止（rclone 自带的检查）。
 - **菜单栏图标**：平时是一朵云，有任务进行时变成带同步箭头的云。点击可以查看每个任务的进度、取消任务或打开主窗口。关闭主窗口后应用仍在菜单栏运行，传输不会中断；点击 Dock 图标可以重新打开窗口。
 - **连接慢的远端也能快速响应**：应用会在后台常驻一个 `rclone rcd`，只监听本机 127.0.0.1，使用随机密码，退出应用时一起关闭。浏览文件夹和下载文件时复用已建立的连接，不必每次重新启动 rclone、重新登录。如果后台 rclone 无法启动，会自动退回每次单独运行 rclone 的方式。
 - **添加远端向导**：根据 `rclone config providers` 生成，支持全部约 70 种后端。会列出必填和可选设置，rclone 后续的提问也在应用内完成，包括 Google Drive、Dropbox、OneDrive 等需要在浏览器中登录授权（OAuth）的服务。
@@ -105,6 +110,7 @@ git tag v1.2.3 && git push origin v1.2.3
 | ⌘[ / ⌘] | 后退 / 前进 |
 | ⌘↑ | 上一级文件夹 |
 | ⌫ | 删除选中项（会先确认） |
+| ⇧⌘S | 同步任务 |
 | ⌘, | 设置 |
 
 ## 目录结构
@@ -121,6 +127,8 @@ Sources/RcloneGUI/
   ContentView.swift / SidebarView.swift / BrowserView.swift
   TransfersView.swift / AddRemoteView.swift / RcloneSetupView.swift
   MenuBarView.swift       菜单栏图标与任务面板
+  SyncManager.swift       同步任务：执行、定时、监听本地文件变化
+  SyncViews.swift         同步任务窗口、任务编辑器、文件夹横幅
 Resources/AppIcon.icon    Icon Composer 图标文件（浅色 + 深色）
 scripts/bundle.sh         把 release 构建打包成 .app
 scripts/make-dmg.sh       把 .app 打包成 .dmg

@@ -440,17 +440,9 @@ final class AppModel {
         pendingQuickLook = nil
     }
 
-    enum SyncDirection { case localToRemote, remoteToLocal }
-
-    /// One-way mirror with `rclone sync`: the destination is made identical to the source,
-    /// including deleting files that only exist in the destination.
-    func sync(local: URL, direction: SyncDirection) {
-        let remote = target()
-        let toRemote = direction == .localToRemote
-        let t = Transfer(kind: .sync, title: "Sync \(local.lastPathComponent)",
-                         detail: toRemote ? "\(local.path) → \(remote)" : "\(remote) → \(local.path)",
-                         localURL: local)
-        startTransfer(t, args: toRemote ? ["sync", local.path, remote] : ["sync", remote, local.path])
+    /// Lists a transfer started elsewhere (e.g. a sync task) in the transfers panel.
+    func adoptTransfer(_ transfer: Transfer) {
+        transfers.insert(transfer, at: 0)
     }
 
     func clearFinishedTransfers() {

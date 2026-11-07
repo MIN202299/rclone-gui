@@ -9,18 +9,26 @@ struct MenuBarLabel: View {
 
     var body: some View {
         Image(systemName: model.activeTransfers.isEmpty ? "icloud" : "arrow.triangle.2.circlepath.icloud")
-            .onAppear { MainWindow.open = { openWindow(id: "main") } }
+            .onAppear {
+                MainWindow.open = { openWindow(id: "main") }
+                MainWindow.openSync = { openWindow(id: "sync"); NSApp.activate(ignoringOtherApps: true) }
+            }
     }
 }
 
 struct MenuBarView: View {
     @Environment(AppModel.self) private var model
+    @Environment(SyncManager.self) private var sync
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
             header.padding(12)
             Divider()
+            if !sync.tasks.isEmpty {
+                syncSection
+                Divider()
+            }
             if model.transfers.isEmpty {
                 VStack(spacing: 6) {
                     Image(systemName: "checkmark.icloud").font(.largeTitle).foregroundStyle(.secondary)
@@ -51,6 +59,39 @@ struct MenuBarView: View {
             .padding(10)
         }
         .frame(width: 360)
+    }
+
+    private var syncSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Sync Tasks").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Spacer()
+                Button("Manage…") { MainWindow.openSync?() }.buttonStyle(.borderless).font(.caption)
+            }
+            ForEach(sync.tasks.prefix(6)) { task in
+                HStack(spacing: 8) {
+                    Image(systemName: task.mode.symbol)
+                        .foregroundStyle(.tint)
+                        .symbolEffect(.pulse, isActive: sync.isRunning(task.id))
+                        .frame(width: 18)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(task.name).lineLimit(1)
+                        SyncStatusLine(task: task).font(.caption2)
+                    }
+                    Spacer(minLength: 4)
+                    if sync.isRunning(task.id) {
+                        Button { sync.cancel(task.id) } label: { Image(systemName: "stop.circle") }
+                            .help("Stop")
+                    } else {
+                        Button { sync.run(task.id) } label: { Image(systemName: "arrow.clockwise.circle") }
+                            .help("Sync Now")
+                            .disabled(task.paused)
+                    }
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .padding(12)
     }
 
     private var header: some View {
