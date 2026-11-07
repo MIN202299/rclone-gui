@@ -35,7 +35,7 @@ xattr -dr com.apple.quarantine /Applications/Rclone.app
 
 - **Sidebar of remotes** with a type icon and a storage usage bar (from `rclone about`, for backends that support it).
 - **Finder-style browser** with breadcrumbs, back/forward, a sortable Name/Size/Modified table, and a filter field. Native Google Docs, Sheets and Slides have no fixed size on Drive, so they show "--" until opened once; after that they show the size of the cached export.
-- **File operations:** new folder, rename, delete (with a confirmation), and copy path, from the toolbar or the right-click menu.
+- **File operations:** new folder, rename, delete (with a confirmation), and copy path, from the toolbar or the right-click menu. Items being deleted are dimmed with a spinner, and the status bar shows how many are done.
 - **Upload** with the toolbar button or by **dragging files and folders from Finder** onto the list.
 - **Download** to any folder.
 - **Quick Look** works like in Finder. Select a file and press Space (or ⌘Y, or "Quick Look" in the right-click menu). The preview follows your selection while it's open, and "Open with Preview" is one click away.

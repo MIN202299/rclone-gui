@@ -858,6 +858,32 @@
         }
       }
     },
+    "Deleting %lld of %lld…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Deleting %1$lld of %2$lld…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在删除第 %1$lld 项，共 %2$lld 项…"
+          }
+        }
+      }
+    },
+    "Deleting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在删除…"
+          }
+        }
+      }
+    },
     "Direction": {
       "localizations": {
         "zh-Hans": {

@@ -221,18 +221,57 @@ final class AppModel {
         await perform(["moveto", target(entry.path), dest])
     }
 
+    /// Items being deleted ("remote:path"), shown dimmed with a spinner until they're gone.
+    private(set) var deletingTargets: Set<String> = []
+    /// Progress of the deletions in flight, for the status bar (reset when all are done).
+    private(set) var deleteDone = 0
+    private(set) var deleteTotal = 0
+
+    func isDeleting(_ entry: Entry) -> Bool { deletingTargets.contains(target(entry.path)) }
+
     func delete(_ items: [Entry]) async {
-        for item in items {
+        guard let remote = selectedRemoteName else { return }
+        // Fix the targets now: the user may switch remotes or folders while this runs.
+        let jobs = items.map { (entry: $0, target: target($0.path)) }.filter { !deletingTargets.contains($0.target) }
+        guard !jobs.isEmpty else { return }
+        deletingTargets.formUnion(jobs.map(\.target))
+        deleteTotal += jobs.count
+        selection.subtract(jobs.map(\.entry.id))
+        for (item, itemTarget) in jobs {
             do {
-                _ = try await Rclone.run(item.isDir ? ["purge", target(item.path)] : ["deletefile", target(item.path)])
+                try await deleteItem(item, remote: remote, target: itemTarget)
             } catch {
                 alertMessage = String(localized: "Couldn't delete “\(item.name)”: \(error.localizedDescription)")
                 break
             }
+            deletingTargets.remove(itemTarget)
+            deleteDone += 1
+            // Drop the row right away instead of waiting for the next listing.
+            if target() == AppModel.parentTarget(of: itemTarget) { entries.removeAll { $0.id == item.id } }
+            listCache[AppModel.parentTarget(of: itemTarget)]?.removeAll { $0.id == item.id }
         }
-        selection.removeAll()
+        deletingTargets.subtract(jobs.map(\.target))
+        if deletingTargets.isEmpty { deleteDone = 0; deleteTotal = 0 }
         await reload()
         await loadAbout()
+    }
+
+    /// Deletes through the background rclone (reuses its connection); falls back to a one-shot process.
+    private func deleteItem(_ item: Entry, remote: String, target: String) async throws {
+        do {
+            _ = try await RcloneDaemon.shared.call(item.isDir ? "operations/purge" : "operations/deletefile",
+                                                   ["fs": "\(remote):", "remote": item.path])
+        } catch where DaemonUnavailable.matches(error) {
+            _ = try await Rclone.run(item.isDir ? ["purge", target] : ["deletefile", target])
+        }
+    }
+
+    /// "remote:a/b/c" → "remote:a/b".
+    private static func parentTarget(of target: String) -> String {
+        guard let colon = target.firstIndex(of: ":") else { return target }
+        let path = target[target.index(after: colon)...]
+        let parent = path.split(separator: "/").dropLast().joined(separator: "/")
+        return target[...colon] + parent
     }
 
     func copyPath(_ items: [Entry]) {

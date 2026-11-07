@@ -87,9 +87,11 @@ struct BrowserView: View {
                         Image(systemName: entry.symbol)
                             .foregroundStyle(entry.isDir ? Color.accentColor : .secondary)
                     }
+                    .opacity(model.isDeleting(entry) ? 0.45 : 1)
                     Spacer(minLength: 4)
                     RowStatus(transfer: model.activeTransfer(for: entry),
-                              cached: model.cachedIDs.contains(entry.id))
+                              cached: model.cachedIDs.contains(entry.id),
+                              deleting: model.isDeleting(entry))
                 }
             }
             .width(min: 200, ideal: 360)
@@ -105,11 +107,13 @@ struct BrowserView: View {
                 }
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+                    .opacity(model.isDeleting(entry) ? 0.45 : 1)
             }
             .width(min: 70, ideal: 90, max: 140)
             TableColumn("Modified", value: \.modTime) { entry in
                 Text(entry.modTime == .distantPast ? "--" : entry.modTime.formatted(date: .abbreviated, time: .shortened))
                     .foregroundStyle(.secondary)
+                    .opacity(model.isDeleting(entry) ? 0.45 : 1)
             }
             .width(min: 120, ideal: 170, max: 220)
         }
@@ -321,9 +325,13 @@ struct BrowserView: View {
 private struct RowStatus: View {
     let transfer: Transfer?
     let cached: Bool
+    let deleting: Bool
 
     var body: some View {
-        if let transfer {
+        if deleting {
+            ProgressView().controlSize(.mini)
+                .help("Deleting…")
+        } else if let transfer {
             HStack(spacing: 4) {
                 if let fraction = transfer.fraction {
                     ProgressRing(fraction: fraction)
@@ -444,6 +452,18 @@ private struct StatusBar: View {
             Text(summary).foregroundStyle(.secondary)
             if model.isLoading { ProgressView().controlSize(.small) }
             Spacer()
+            if model.deleteTotal > 0 {
+                HStack(spacing: 6) {
+                    Text("Deleting \(min(model.deleteDone + 1, model.deleteTotal)) of \(model.deleteTotal)…")
+                        .monospacedDigit()
+                    if model.deleteTotal > 1 {
+                        ProgressView(value: Double(model.deleteDone), total: Double(model.deleteTotal)).frame(width: 90)
+                    } else {
+                        ProgressView().controlSize(.small)
+                    }
+                }
+                .foregroundStyle(.secondary)
+            }
             let active = model.activeTransfers
             if !active.isEmpty {
                 Button { showingTransfers = true } label: {
