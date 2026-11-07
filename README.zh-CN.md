@@ -13,12 +13,23 @@
   <img src="https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Swift-SwiftUI-F05138?logo=swift&logoColor=white" alt="Swift / SwiftUI">
   <a href="https://rclone.org"><img src="https://img.shields.io/badge/powered%20by-rclone-3F79AD" alt="powered by rclone"></a>
+  <a href="https://github.com/MIN202299/rclone-gui/releases/latest"><img src="https://img.shields.io/github/v/release/MIN202299/rclone-gui?label=release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
 </p>
 
 <p align="center"><a href="README.md">English</a> · <b>简体中文</b></p>
 
 使用 SwiftUI 编写，无第三方依赖，底层由 [rclone](https://rclone.org) 驱动。它读取你现有的 `rclone.conf`，所以已经配置过的远端都会自动出现。
+
+## 下载
+
+在 [**Releases**](https://github.com/MIN202299/rclone-gui/releases/latest) 下载最新的 `Rclone-x.y.z.dmg`，打开后把 **Rclone** 拖到「应用程序」即可。支持 macOS 14 及以上版本，Apple 芯片和 Intel 都可以用。
+
+应用目前还没有经过 Apple 公证，第一次打开会被 macOS 拦截。请到「系统设置 → 隐私与安全性」点击「仍要打开」，或在终端运行：
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Rclone.app
+```
 
 ## 功能
 
@@ -68,6 +79,22 @@ open build/Rclone.app
 open -n --env RCLONE_CONFIG=/path/to/test.conf build/Rclone.app
 ```
 
+在本地打包 DMG（加上 `UNIVERSAL=1` 可同时支持 Apple 芯片和 Intel）：
+
+```bash
+VERSION=1.2.3 ./scripts/bundle.sh && VERSION=1.2.3 ./scripts/make-dmg.sh   # → build/Rclone-1.2.3.dmg
+```
+
+### 发布新版本
+
+推送一个版本 tag 即可。GitHub Actions（[`release.yml`](.github/workflows/release.yml)）会在 macOS 机器上构建通用版 DMG，并连同 `.sha256` 校验文件一起发布为 GitHub Release：
+
+```bash
+git tag v1.2.3 && git push origin v1.2.3
+```
+
+在 Actions 页面手动运行（Actions → Release → Run workflow）只会构建一个测试用 DMG 作为构建产物下载，不会发布 Release。
+
 ## 快捷键
 
 | 按键 | 操作 |
@@ -96,6 +123,8 @@ Sources/RcloneGUI/
   MenuBarView.swift       菜单栏图标与任务面板
 Resources/AppIcon.icon    Icon Composer 图标文件（浅色 + 深色）
 scripts/bundle.sh         把 release 构建打包成 .app
+scripts/make-dmg.sh       把 .app 打包成 .dmg
+.github/workflows/release.yml  推送 v* tag 时自动构建并发布 DMG
 scripts/make-icon.swift   生成应用图标
 ```
 

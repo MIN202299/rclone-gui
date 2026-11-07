@@ -13,12 +13,23 @@
   <img src="https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Swift-SwiftUI-F05138?logo=swift&logoColor=white" alt="Swift / SwiftUI">
   <a href="https://rclone.org"><img src="https://img.shields.io/badge/powered%20by-rclone-3F79AD" alt="powered by rclone"></a>
+  <a href="https://github.com/MIN202299/rclone-gui/releases/latest"><img src="https://img.shields.io/github/v/release/MIN202299/rclone-gui?label=release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
 </p>
 
 <p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
 
 Built with SwiftUI and no third-party dependencies, it drives [rclone](https://rclone.org) under the hood. It uses your existing `rclone.conf`, so every remote you've already set up shows up automatically.
+
+## Download
+
+Get the latest `Rclone-x.y.z.dmg` from [**Releases**](https://github.com/MIN202299/rclone-gui/releases/latest), open it and drag **Rclone** into **Applications**. It runs on macOS 14+ on both Apple Silicon and Intel.
+
+The app isn't notarized by Apple yet, so macOS blocks the first launch. Open **System Settings → Privacy & Security** and click **Open Anyway**, or run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Rclone.app
+```
 
 ## Features
 
@@ -68,6 +79,22 @@ To try it without touching your real config, launch it with a different config f
 open -n --env RCLONE_CONFIG=/path/to/test.conf build/Rclone.app
 ```
 
+To make a DMG locally (add `UNIVERSAL=1` for an Apple Silicon + Intel build):
+
+```bash
+VERSION=1.2.3 ./scripts/bundle.sh && VERSION=1.2.3 ./scripts/make-dmg.sh   # → build/Rclone-1.2.3.dmg
+```
+
+### Releasing
+
+Push a version tag. GitHub Actions ([`release.yml`](.github/workflows/release.yml)) builds a universal DMG on a macOS runner and publishes it, with a `.sha256` checksum, as a GitHub Release:
+
+```bash
+git tag v1.2.3 && git push origin v1.2.3
+```
+
+Running the workflow by hand (Actions → Release → Run workflow) builds a test DMG as a downloadable artifact without publishing a release.
+
 ## Shortcuts
 
 | Key | Action |
@@ -96,6 +123,8 @@ Sources/RcloneGUI/
   MenuBarView.swift       menu bar icon and jobs panel
 Resources/AppIcon.icon    Icon Composer document (light + dark)
 scripts/bundle.sh         packages the release build into a .app
+scripts/make-dmg.sh       packages the .app into a .dmg
+.github/workflows/release.yml  builds and publishes the DMG when a v* tag is pushed
 scripts/make-icon.swift   renders the app icon
 ```
 
