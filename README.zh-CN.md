@@ -1,0 +1,88 @@
+# Rclone GUI
+
+[English](README.md) | **简体中文**
+
+一个轻量的 macOS 原生应用（SwiftUI 编写，无第三方依赖），通过 [rclone](https://rclone.org) 浏览和管理云存储。它直接调用你已安装的 `rclone`，读取现有的 `rclone.conf`，所以你配置过的远端都会自动出现。
+
+## 功能
+
+- **远端侧边栏**：每个远端带类型图标，并显示存储用量条（数据来自 `rclone about`，需要后端支持）。
+- **类似 Finder 的文件浏览**：路径导航栏、前进/后退，文件列表可按名称、大小、修改时间排序，并可筛选。没有固定大小的文件（例如 Google 在线文档）大小显示为「--」。
+- **文件操作**：新建文件夹、重命名、删除（会先确认）、复制路径，可在工具栏或右键菜单中使用。
+- **上传**：点工具栏按钮，或**直接把文件和文件夹从 Finder 拖进列表**。
+- **下载**：下载到任意文件夹。
+- **快速查看（Quick Look）**：用法和 Finder 一样，选中文件按空格（或 ⌘Y，或右键菜单里的「Quick Look」）。预览打开时会跟随列表选中项切换，右上角可一键「用预览打开」。
+- **文件缓存**：打开和预览过的文件会保存在 `~/Library/Caches/RcloneGUI/files`。如果云端文件没变（大小和修改时间都和文件列表一致），会直接打开本地缓存，不需要联网。连不上云端时，会打开上次缓存的版本。缓存上限默认 2 GB，可在**设置**里修改；设置里还会显示已用空间，并提供「清除缓存」按钮。超过上限时，最久没打开的文件会先被删除。访问过的文件夹会立即显示上次的列表，同时在后台刷新。
+- **文件列表中的状态标记**：已缓存且和云端一致的文件会显示绿色对勾；文件正在下载、打开或预览时，那一行会显示进度圆环和百分比。
+- **加载提示**：快速查看或打开的文件还在下载时，底部会出现一个浮动条，显示进度，并可以取消。
+- **传输面板**：实时显示进度、速度和剩余时间，可以取消任务，下载完成后可「在 Finder 中显示」。
+- **文件夹同步**：工具栏的同步菜单用 `rclone sync` 把本地文件夹单向镜像到当前远端文件夹，或者反过来。开始前会先确认，因为只存在于目标端的文件会被删除。
+- **菜单栏图标**：平时是一朵云，有任务进行时变成带同步箭头的云。点击可以查看每个任务的进度、取消任务或打开主窗口。关闭主窗口后应用仍在菜单栏运行，传输不会中断；点击 Dock 图标可以重新打开窗口。
+- **连接慢的远端也能快速响应**：应用会在后台常驻一个 `rclone rcd`，只监听本机 127.0.0.1，使用随机密码，退出应用时一起关闭。浏览文件夹和下载文件时复用已建立的连接，不必每次重新启动 rclone、重新登录。如果后台 rclone 无法启动，会自动退回每次单独运行 rclone 的方式。
+- **添加远端向导**：根据 `rclone config providers` 生成，支持全部约 70 种后端。会列出必填和可选设置，rclone 后续的提问也在应用内完成，包括 Google Drive、Dropbox、OneDrive 等需要在浏览器中登录授权（OAuth）的服务。
+- **移除远端**：只删除 rclone 配置中的这一项，不会动云端的任何文件。
+- **浅色/深色应用图标**：浅色版是白底加 iCloud 风格的蓝色渐变云朵；深色版是黑底加接近白色的云朵。在「系统设置 → 外观 → 图标与小组件样式」中选择「深色」后，macOS 会显示深色版。
+
+## 系统要求
+
+- macOS 14 或更高版本
+- rclone。如果没有找到 rclone，应用会显示安装引导页，提供三种方式：
+  - **Download & Install（下载安装）**：从 rclone.org 下载最新官方版本，并用官方公布的 SHA-256 校验值核对，安装到 `~/Library/Application Support/RcloneGUI/bin/rclone`，不需要管理员密码。
+  - **Install with Homebrew（用 Homebrew 安装）**：执行 `brew install rclone`，并实时显示输出。只有装了 Homebrew 时才会出现这个选项。
+  - **Choose rclone…（选择已有的 rclone）**：手动指定已安装的 rclone。
+
+  查找 rclone 的顺序是：**设置（⌘,）** 中的自定义路径 → Homebrew → `/usr/local/bin` → `~/bin` → 应用自己安装的那一份。
+
+## 构建与运行
+
+构建需要安装 Xcode（用到 `swift` 和 `actool`）。
+
+```bash
+./scripts/bundle.sh          # 构建 build/Rclone.app（release 版，临时签名）
+open build/Rclone.app
+```
+
+要安装的话，把 `build/Rclone.app` 复制到「应用程序」（`/Applications`）文件夹即可。
+
+开发时可以用 `swift build && swift run`，或者用 Xcode 打开 `Package.swift`。
+
+想在不影响真实配置的情况下试用，可以指定另一个配置文件启动：
+
+```bash
+open -n --env RCLONE_CONFIG=/path/to/test.conf build/Rclone.app
+```
+
+## 快捷键
+
+| 按键 | 操作 |
+| --- | --- |
+| 空格 / ⌘Y | 快速查看 |
+| 回车 / 双击 | 打开文件夹或文件 |
+| ⌘R | 刷新 |
+| ⌘[ / ⌘] | 后退 / 前进 |
+| ⌘↑ | 上一级文件夹 |
+| ⌫ | 删除选中项（会先确认） |
+| ⌘, | 设置 |
+
+## 目录结构
+
+```
+Sources/RcloneGUI/
+  RcloneGUIApp.swift      应用入口、菜单、设置、Dock 重新打开窗口
+  AppModel.swift          应用状态：远端、导航、文件操作、传输、快速查看
+  Rclone.swift            rclone 命令行调用与 JSON 数据模型
+  RcloneDaemon.swift      后台 `rclone rcd` 及其 HTTP 接口
+  Transfer.swift          带实时进度和取消功能的传输任务（命令行或 rcd 任务）
+  FileCache.swift         有容量上限、按最近使用淘汰的文件缓存
+  RcloneInstaller.swift   下载并校验 rclone，或通过 Homebrew 安装
+  ContentView.swift / SidebarView.swift / BrowserView.swift
+  TransfersView.swift / AddRemoteView.swift / RcloneSetupView.swift
+  MenuBarView.swift       菜单栏图标与任务面板
+Resources/AppIcon.icon    Icon Composer 图标文件（浅色 + 深色）
+scripts/bundle.sh         把 release 构建打包成 .app
+scripts/make-icon.swift   生成应用图标
+```
+
+## 许可证
+
+MIT，详见 [LICENSE](LICENSE)。rclone 本身是另一个独立项目，同样使用 MIT 许可证。
