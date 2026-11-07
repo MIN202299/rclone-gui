@@ -45,6 +45,8 @@ struct SidebarView: View {
                     Spacer()
                     Button { Task { await model.loadRemotes() } } label: { Image(systemName: "arrow.clockwise") }
                         .help("Reload Remotes")
+                    SettingsLink { Label("Settings", systemImage: "gearshape").labelStyle(.iconOnly) }
+                        .help("Settings (⌘,)")
                 }
                 .buttonStyle(.borderless)
             }
