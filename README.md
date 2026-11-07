@@ -69,3 +69,7 @@ Sources/RcloneGUI/
 scripts/bundle.sh     packages the release build into a .app
 scripts/make-icon.swift  renders the app icon
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE). rclone itself is a separate project, also MIT-licensed.
