@@ -12,9 +12,9 @@ struct SyncTask: Codable, Identifiable, Hashable {
 
         var title: String {
             switch self {
-            case .upload: return "Upload"
-            case .download: return "Download"
-            case .twoWay: return "Two-way"
+            case .upload: return String(localized: "Upload")
+            case .download: return String(localized: "Download")
+            case .twoWay: return String(localized: "Two-way")
             }
         }
 
@@ -37,11 +37,11 @@ struct SyncTask: Codable, Identifiable, Hashable {
         var explanation: String {
             switch self {
             case .upload:
-                return "Makes the remote folder an exact copy of the local folder. Files you delete locally are also deleted on the remote."
+                return String(localized: "Makes the remote folder an exact copy of the local folder. Files you delete locally are also deleted on the remote.")
             case .download:
-                return "Makes the local folder an exact copy of the remote folder. Files deleted on the remote are also deleted locally."
+                return String(localized: "Makes the local folder an exact copy of the remote folder. Files deleted on the remote are also deleted locally.")
             case .twoWay:
-                return "Changes on either side, including deletions, are copied to the other side. If a file changed on both sides, the newer one wins and the other is kept with a numbered name. The first run merges both folders without deleting anything."
+                return String(localized: "Changes on either side, including deletions, are copied to the other side. If a file changed on both sides, the newer one wins and the other is kept with a numbered name. The first run merges both folders without deleting anything.")
             }
         }
     }
@@ -68,18 +68,28 @@ struct SyncTask: Codable, Identifiable, Hashable {
     var localURL: URL { URL(fileURLWithPath: localPath, isDirectory: true) }
     var shortID: String { String(id.uuidString.prefix(8)).lowercased() }
 
-    static let intervalChoices: [(minutes: Int, label: String)] = [
-        (0, "Manually only"), (5, "Every 5 minutes"), (15, "Every 15 minutes"), (30, "Every 30 minutes"),
-        (60, "Every hour"), (360, "Every 6 hours"), (1440, "Every day"),
-    ]
+    static var intervalChoices: [(minutes: Int, label: String)] {
+        [
+            (0, String(localized: "Manually only")),
+            (5, String(localized: "Every 5 minutes")),
+            (15, String(localized: "Every 15 minutes")),
+            (30, String(localized: "Every 30 minutes")),
+            (60, String(localized: "Every hour")),
+            (360, String(localized: "Every 6 hours")),
+            (1440, String(localized: "Every day")),
+        ]
+    }
 
     var scheduleText: String {
         var parts: [String] = []
         if intervalMinutes > 0, let label = Self.intervalChoices.first(where: { $0.minutes == intervalMinutes })?.label {
-            parts.append(label.lowercased())
+            parts.append(label)
         }
-        if watchLocal && mode != .download { parts.append("on local changes") }
-        return parts.isEmpty ? "Manual" : parts.joined(separator: " · ").prefix(1).uppercased() + parts.joined(separator: " · ").dropFirst()
+        if watchLocal && mode != .download {
+            // "Every hour · on local changes", or "On local changes" on its own.
+            parts.append(parts.isEmpty ? String(localized: "On local changes") : String(localized: "on local changes"))
+        }
+        return parts.isEmpty ? String(localized: "Manual") : parts.joined(separator: " · ")
     }
 }
 
@@ -192,7 +202,7 @@ final class SyncManager {
         var isDir: ObjCBool = false
         let localExists = FileManager.default.fileExists(atPath: task.localPath, isDirectory: &isDir) && isDir.boolValue
         if !localExists && task.mode != .download {
-            record(id, success: false, message: "The local folder “\(task.localPath)” can't be found.")
+            record(id, success: false, message: String(localized: "The local folder “\(task.localPath)” can't be found."))
             return
         }
 
@@ -200,12 +210,12 @@ final class SyncManager {
             // Safety: never mirror an empty source over a full destination.
             if task.mode == .upload, (try? FileManager.default.contentsOfDirectory(atPath: task.localPath))?
                 .filter({ !$0.hasPrefix(".") }).isEmpty ?? true {
-                record(id, success: false, message: "Skipped: the local folder is empty, so syncing would delete everything on the remote.")
+                record(id, success: false, message: String(localized: "Skipped: the local folder is empty, so syncing would delete everything on the remote."))
                 return
             }
             if task.mode == .download,
                let list = try? await RcloneDaemon.shared.list(remote: task.remote, path: task.remotePath), list.isEmpty {
-                record(id, success: false, message: "Skipped: the remote folder is empty, so syncing would delete everything in the local folder.")
+                record(id, success: false, message: String(localized: "Skipped: the remote folder is empty, so syncing would delete everything in the local folder."))
                 return
             }
             if task.mode == .download && !localExists {
@@ -225,7 +235,7 @@ final class SyncManager {
             args = ["sync", task.remoteTarget, task.localPath, "--create-empty-src-dirs"]
         case .twoWay:
             guard let link = bisyncLink(for: task) else {
-                record(task.id, success: false, message: "Couldn't prepare the two-way sync state folder.")
+                record(task.id, success: false, message: String(localized: "Couldn't prepare the two-way sync state folder."))
                 return
             }
             // bisync's state file is named "<path1>..<path2>.path1.lst" and must fit in 255 bytes.
@@ -233,7 +243,7 @@ final class SyncManager {
                 .replacingOccurrences(of: "/", with: "_")
             if stateName.utf8.count > 250 {
                 record(task.id, success: false,
-                       message: "The remote folder path is too long for two-way sync (an rclone limit). Choose a shorter remote folder, or use one-way sync.")
+                       message: String(localized: "The remote folder path is too long for two-way sync (an rclone limit). Choose a shorter remote folder, or use one-way sync."))
                 return
             }
             var a = ["bisync", link.path, task.remoteTarget,
@@ -265,7 +275,7 @@ final class SyncManager {
                 }
                 self.record(task.id, success: false, message: message)
             case .cancelled:
-                self.record(task.id, success: false, message: "Cancelled")
+                self.record(task.id, success: false, message: String(localized: "Cancelled"))
             case .running:
                 break
             }
@@ -284,10 +294,12 @@ final class SyncManager {
 
     private static func summary(_ t: Transfer) -> String {
         var parts: [String] = []
-        if t.totalFiles > 0 { parts.append("\(t.totalFiles) file\(t.totalFiles == 1 ? "" : "s") copied") }
+        if t.totalFiles > 0 {
+            parts.append(t.totalFiles == 1 ? String(localized: "1 file copied") : String(localized: "\(t.totalFiles) files copied"))
+        }
         if t.totalBytes > 0 { parts.append(t.totalBytes.byteString) }
-        if t.deletes > 0 { parts.append("\(t.deletes) deleted") }
-        return parts.isEmpty ? "Already in sync" : parts.joined(separator: " · ")
+        if t.deletes > 0 { parts.append(String(localized: "\(t.deletes) deleted")) }
+        return parts.isEmpty ? String(localized: "Already in sync") : parts.joined(separator: " · ")
     }
 
     static func displayPath(_ path: String) -> String {

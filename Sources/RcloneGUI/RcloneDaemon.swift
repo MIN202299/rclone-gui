@@ -73,7 +73,7 @@ final class RcloneDaemon {
             DispatchQueue.global().asyncAfter(deadline: .now() + 15) {
                 if once.fire() {
                     p.terminate()
-                    cont.resume(throwing: DaemonUnavailable("rclone's background service didn't start."))
+                    cont.resume(throwing: DaemonUnavailable(String(localized: "rclone's background service didn't start.")))
                 }
             }
         }

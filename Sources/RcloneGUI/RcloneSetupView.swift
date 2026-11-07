@@ -42,7 +42,7 @@ struct RcloneSetupView: View {
             symbol: "arrow.down.circle.fill",
             title: "Download rclone",
             badge: "Recommended",
-            detail: "Downloads \(installer.latestVersion.map { "rclone \($0)" } ?? "the latest rclone") from rclone.org (about 33 MB), checks it against rclone's published checksum, and installs it for this app only. No administrator password needed."
+            detail: "Downloads \(installer.latestVersion.map { "rclone \($0)" } ?? String(localized: "the latest rclone")) from rclone.org (about 33 MB), checks it against rclone's published checksum, and installs it for this app only. No administrator password needed."
         ) {
             Button("Download & Install") {
                 Task { if await installer.installOfficial() { await model.loadRemotes() } }
@@ -138,7 +138,7 @@ struct RcloneSetupView: View {
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.showsHiddenFiles = true
-        panel.prompt = "Use This rclone"
+        panel.prompt = String(localized: "Use This rclone")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         UserDefaults.standard.set(url.path, forKey: Rclone.pathDefaultsKey)
         Task { await model.loadRemotes() }
@@ -147,9 +147,9 @@ struct RcloneSetupView: View {
 
 private struct SetupCard<Actions: View>: View {
     let symbol: String
-    let title: String
-    let badge: String?
-    let detail: String
+    let title: LocalizedStringKey
+    let badge: LocalizedStringKey?
+    let detail: LocalizedStringKey
     @ViewBuilder var actions: Actions
 
     var body: some View {

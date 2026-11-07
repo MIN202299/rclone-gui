@@ -65,19 +65,22 @@ final class Transfer: Identifiable {
         if let note, !isRunning { return note }
         switch state {
         case .running:
-            guard totalBytes > 0 else { return kind == .sync ? "Comparing files…" : "Connecting…" }
-            var s = "\(bytes.byteString) of \(totalBytes.byteString)"
-            if totalFiles > 1 { s += " · \(files)/\(totalFiles) files" }
+            guard totalBytes > 0 else {
+                return kind == .sync ? String(localized: "Comparing files…") : String(localized: "Connecting…")
+            }
+            var s = String(localized: "\(bytes.byteString) of \(totalBytes.byteString)")
+            if totalFiles > 1 { s += " · " + String(localized: "\(files)/\(totalFiles) files") }
             if speed > 0 { s += " · \(Int64(speed).byteString)/s" }
-            if let eta, eta > 0 { s += " · \(Self.etaFormatter.string(from: eta) ?? "") left" }
+            if let eta, eta > 0 { s += " · " + String(localized: "\(Self.etaFormatter.string(from: eta) ?? "") left") }
             return s
         case .done:
-            var s = totalBytes > 0 ? "Completed · \(totalBytes.byteString)" : (kind == .sync ? "Already in sync" : "Completed")
-            if totalFiles > 0 { s += " · \(totalFiles) file\(totalFiles == 1 ? "" : "s")" }
-            if deletes > 0 { s += " · \(deletes) deleted" }
+            var s = totalBytes > 0 ? String(localized: "Completed · \(totalBytes.byteString)")
+                : kind == .sync ? String(localized: "Already in sync") : String(localized: "Completed")
+            if totalFiles > 0 { s += " · " + (totalFiles == 1 ? String(localized: "1 file") : String(localized: "\(totalFiles) files")) }
+            if deletes > 0 { s += " · " + String(localized: "\(deletes) deleted") }
             return s
         case .failed(let msg): return msg
-        case .cancelled: return "Cancelled"
+        case .cancelled: return String(localized: "Cancelled")
         }
     }
 
@@ -148,7 +151,7 @@ final class Transfer: Identifiable {
                 p["_async"] = true
                 let r = try await daemon.call(command, p)
                 guard let id = (r["jobid"] as? NSNumber)?.intValue else {
-                    throw RcloneError.failed("rclone didn't start the job.")
+                    throw RcloneError.failed(String(localized: "rclone didn't start the job."))
                 }
                 jobID = id
                 while true {
@@ -160,7 +163,7 @@ final class Transfer: Identifiable {
                                 state = .done
                                 if totalBytes > 0 { bytes = totalBytes }
                             } else {
-                                state = .failed((status["error"] as? String) ?? "rclone reported an error.")
+                                state = .failed((status["error"] as? String) ?? String(localized: "rclone reported an error."))
                             }
                         }
                         break
@@ -219,7 +222,7 @@ final class Transfer: Identifiable {
                 state = .done
                 if totalBytes > 0 { bytes = totalBytes }
             } else {
-                state = .failed(errors.last ?? "rclone exited with status \(status).")
+                state = .failed(errors.last ?? String(localized: "rclone exited with status \(status)."))
             }
         }
         onFinish?(self)

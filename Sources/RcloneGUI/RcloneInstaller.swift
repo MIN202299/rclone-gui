@@ -49,7 +49,7 @@ final class RcloneInstaller {
         // "rclone v1.76.0"
         guard let v = String(decoding: data, as: UTF8.self).split(separator: " ").last?
             .trimmingCharacters(in: .whitespacesAndNewlines), v.hasPrefix("v") else {
-            throw InstallError("Couldn't read the latest rclone version from rclone.org.")
+            throw InstallError(String(localized: "Couldn't read the latest rclone version from rclone.org."))
         }
         return v
     }
@@ -65,39 +65,39 @@ final class RcloneInstaller {
         do {
             try fm.createDirectory(at: work, withIntermediateDirectories: true)
 
-            phase = .working("Checking the latest version…")
+            phase = .working(String(localized: "Checking the latest version…"))
             let version = try await Self.currentVersion()
             latestVersion = version
             let zipName = "rclone-\(version)-\(Self.platform).zip"
             let folder = Self.base.appendingPathComponent(version)
 
-            phase = .working("Fetching checksums…")
+            phase = .working(String(localized: "Fetching checksums…"))
             let (sumsData, _) = try await URLSession.shared.data(from: folder.appendingPathComponent("SHA256SUMS"))
             guard let expected = String(decoding: sumsData, as: UTF8.self)
                 .split(separator: "\n")
                 .map({ $0.split(separator: " ", omittingEmptySubsequences: true) })
                 .first(where: { $0.count == 2 && $0[1] == zipName })?[0] else {
-                throw InstallError("rclone.org has no checksum for \(zipName).")
+                throw InstallError(String(localized: "rclone.org has no checksum for \(zipName)."))
             }
 
-            phase = .working("Downloading rclone \(version)…")
+            phase = .working(String(localized: "Downloading rclone \(version)…"))
             progress = 0
             let zip = work.appendingPathComponent(zipName)
             try await download(folder.appendingPathComponent(zipName), to: zip)
             progress = nil
 
-            phase = .working("Verifying download…")
+            phase = .working(String(localized: "Verifying download…"))
             let digest = SHA256.hash(data: try Data(contentsOf: zip)).map { String(format: "%02x", $0) }.joined()
             guard digest == expected.lowercased() else {
-                throw InstallError("The download didn't match rclone's published checksum, so it was discarded. Please try again.")
+                throw InstallError(String(localized: "The download didn't match rclone's published checksum, so it was discarded. Please try again."))
             }
 
-            phase = .working("Installing…")
+            phase = .working(String(localized: "Installing…"))
             let unzipped = work.appendingPathComponent("unzipped")
             try await runTool("/usr/bin/ditto", ["-x", "-k", zip.path, unzipped.path])
             guard let binary = fm.enumerator(at: unzipped, includingPropertiesForKeys: nil)?
                 .compactMap({ $0 as? URL }).first(where: { $0.lastPathComponent == "rclone" }) else {
-                throw InstallError("The rclone archive didn't contain the rclone program.")
+                throw InstallError(String(localized: "The rclone archive didn't contain the rclone program."))
             }
             let dest = Self.managedBinary
             try fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -121,7 +121,7 @@ final class RcloneInstaller {
             let task = URLSession.shared.downloadTask(with: url) { tmp, response, error in
                 if let error { cont.resume(throwing: error); return }
                 guard let tmp, (response as? HTTPURLResponse)?.statusCode == 200 else {
-                    cont.resume(throwing: InstallError("Download failed (\((response as? HTTPURLResponse)?.statusCode ?? 0))."))
+                    cont.resume(throwing: InstallError(String(localized: "Download failed (\((response as? HTTPURLResponse)?.statusCode ?? 0)).")))
                     return
                 }
                 do {
@@ -142,12 +142,12 @@ final class RcloneInstaller {
 
     func installWithHomebrew() async -> Bool {
         guard let brew = Self.brewPath else {
-            phase = .failed("Homebrew isn't installed.")
+            phase = .failed(String(localized: "Homebrew isn't installed."))
             return false
         }
         progress = nil
         log = "$ brew install rclone\n"
-        phase = .working("Installing with Homebrew… this can take a few minutes.")
+        phase = .working(String(localized: "Installing with Homebrew… this can take a few minutes."))
         do {
             try await runTool(brew, ["install", "rclone"], streamLog: true)
             let path = (brew as NSString).deletingLastPathComponent + "/rclone"
@@ -166,7 +166,7 @@ final class RcloneInstaller {
            !FileManager.default.isExecutableFile(atPath: custom) {
             UserDefaults.standard.removeObject(forKey: Rclone.pathDefaultsKey)
         }
-        phase = .done("Installed \(versionLine).")
+        phase = .done(String(localized: "Installed \(versionLine)."))
     }
 
     // MARK: Process helper
@@ -203,7 +203,7 @@ final class RcloneInstaller {
                     cont.resume(returning: collected.text)
                 } else {
                     let tail = collected.text.split(separator: "\n").suffix(3).joined(separator: "\n")
-                    cont.resume(throwing: InstallError(tail.isEmpty ? "\(exe) failed (\(proc.terminationStatus))." : tail))
+                    cont.resume(throwing: InstallError(tail.isEmpty ? String(localized: "\(exe) failed (\(proc.terminationStatus)).") : tail))
                 }
             }
             do { try p.run() } catch { cont.resume(throwing: error) }

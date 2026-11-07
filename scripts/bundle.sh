@@ -21,6 +21,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/RcloneGUI"
 
+# Translations: compile the string catalog into <lang>.lproj/Localizable.strings.
+# English is the source language, so en.lproj only marks it as supported.
+xcrun xcstringstool compile Resources/Localizable.xcstrings --output-directory "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/Resources/en.lproj"
+
 # App icon: Icon Composer document with light + dark appearances -> Assets.car (+ AppIcon.icns).
 # Older Xcode can't compile .icon documents; fall back to a light-only .icns from the preview PNG.
 [[ -d Resources/AppIcon.icon ]] || swift scripts/make-icon.swift
@@ -46,6 +51,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleName</key><string>Rclone</string>
   <key>CFBundleDisplayName</key><string>Rclone</string>
   <key>CFBundleIdentifier</key><string>local.rclone-gui</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array><string>en</string><string>zh-Hans</string></array>
   <key>CFBundleExecutable</key><string>RcloneGUI</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleIconName</key><string>AppIcon</string>

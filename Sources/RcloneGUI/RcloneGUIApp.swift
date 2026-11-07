@@ -120,6 +120,9 @@ struct SettingsView: View {
     @State private var relocating = false
     @State private var locationError: String?
     @State private var locationTick = 0 // forces the location row to re-read FileCache.root
+    @State private var language = AppLanguage.current
+    /// The language this process launched with; a different choice needs a restart.
+    @State private var launchLanguage = AppLanguage.current
 
     private struct PendingLocation: Identifiable {
         let id = UUID()
@@ -128,6 +131,24 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                Picker("Language", selection: $language) {
+                    ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
+                }
+                if language != launchLanguage {
+                    HStack {
+                        Text("Restart Rclone to use the new language.")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if AppLanguage.canRelaunch {
+                            Button("Restart Now") { AppLanguage.relaunch() }
+                        }
+                    }
+                }
+            } header: {
+                Text("General")
+            }
+
             Section {
                 TextField("rclone executable", text: $rclonePath, prompt: Text(Rclone.locate() ?? "/opt/homebrew/bin/rclone"))
                 HStack {
@@ -210,7 +231,8 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 560)
+        .frame(width: 480, height: 590)
+        .onChange(of: language) { AppLanguage.apply(language) }
         .onChange(of: rclonePath) { Task { await model.loadRemotes() } }
         .onChange(of: cacheLimit) {
             Task {
@@ -251,8 +273,8 @@ struct SettingsView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.prompt = "Use This Folder"
-        panel.message = "Choose where to keep cached files. A “\(FileCache.folderName)” folder will be created inside it."
+        panel.prompt = String(localized: "Use This Folder")
+        panel.message = String(localized: "Choose where to keep cached files. A “\(FileCache.folderName)” folder will be created inside it.")
         panel.directoryURL = FileCache.chosenParent
         guard panel.runModal() == .OK, let url = panel.url else { return }
         requestLocation(url)

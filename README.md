@@ -53,6 +53,7 @@ xattr -dr com.apple.quarantine /Applications/Rclone.app
 - **Fast on slow-to-connect remotes:** the app keeps one `rclone rcd` running in the background, listening only on 127.0.0.1 with a random password and stopped when the app quits. Folder listings and file fetches reuse its remote connections instead of starting rclone and logging in again each time. If the background rclone can't start, the app falls back to running a separate rclone for each action.
 - **Add Remote wizard** built from `rclone config providers` (all ~70 backends). It shows the required and optional fields, then asks rclone's follow-up questions inside the app, including browser OAuth sign-in for Google Drive, Dropbox, OneDrive and others.
 - **Remove remote.** This only deletes the config entry and never touches the cloud files.
+- **Localized interface:** English and Simplified Chinese. The app follows your macOS language by default; pick a language for this app alone in **Settings → General → Language** (applies after a restart).
 - **App icon with light and dark versions:** light is a white tile with an iCloud-style blue gradient cloud; dark is a black tile with a near-white cloud. macOS shows the dark version when *System Settings → Appearance → Icon & widget style* is set to Dark.
 
 ## Requirements
@@ -83,6 +84,8 @@ To try it without touching your real config, launch it with a different config f
 ```bash
 open -n --env RCLONE_CONFIG=/path/to/test.conf build/Rclone.app
 ```
+
+UI text lives in `Resources/Localizable.xcstrings` (a String Catalog) and is compiled into the app by `bundle.sh`. After adding or changing UI text, run `./scripts/update-strings.sh`: it re-extracts the strings from the sources, merges them into the catalog, and lists any that still need a Chinese translation. Translate them in Xcode or by editing the JSON.
 
 To make a DMG locally (add `UNIVERSAL=1` for an Apple Silicon + Intel build):
 
@@ -129,9 +132,12 @@ Sources/RcloneGUI/
   MenuBarView.swift       menu bar icon and jobs panel
   SyncManager.swift       saved sync tasks: running, scheduling, folder watching
   SyncViews.swift         Sync Tasks window, task editor, folder banner
+  AppLanguage.swift       interface language setting and relaunch
 Resources/AppIcon.icon    Icon Composer document (light + dark)
+Resources/Localizable.xcstrings  UI strings and their translations (English / Simplified Chinese)
 scripts/bundle.sh         packages the release build into a .app
 scripts/make-dmg.sh       packages the .app into a .dmg
+scripts/update-strings.sh extracts UI strings from the sources into Localizable.xcstrings
 .github/workflows/release.yml  builds and publishes the DMG when a v* tag is pushed
 scripts/make-icon.swift   renders the app icon
 ```

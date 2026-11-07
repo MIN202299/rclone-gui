@@ -149,9 +149,9 @@ struct AddRemoteView: View {
 
     private var nameProblem: String? {
         let n = name.trimmingCharacters(in: .whitespaces)
-        if n.isEmpty { return "Enter a name." }
-        if n.contains(":") || n.hasPrefix("-") { return "Names can't contain “:” or start with “-”." }
-        if model.remotes.contains(where: { $0.name == n }) && !created { return "A remote with this name already exists." }
+        if n.isEmpty { return String(localized: "Enter a name.") }
+        if n.contains(":") || n.hasPrefix("-") { return String(localized: "Names can't contain “:” or start with “-”.") }
+        if model.remotes.contains(where: { $0.name == n }) && !created { return String(localized: "A remote with this name already exists.") }
         return nil
     }
 
@@ -217,7 +217,7 @@ struct AddRemoteView: View {
             if !v.isEmpty && (v != option.defaultString || option.required) { args.append("\(option.name)=\(v)") }
         }
         args += ["--non-interactive", "--obscure"]
-        await step(args, message: "Creating remote…")
+        await step(args, message: String(localized: "Creating remote…"))
     }
 
     private func answerQuestion() async {
@@ -225,7 +225,7 @@ struct AddRemoteView: View {
         let remoteName = name.trimmingCharacters(in: .whitespaces)
         let isOAuth = q.state.contains("oauth") || (q.option?.name ?? "").contains("auth")
         await step(["config", "update", remoteName, "--continue", "--state", q.state, "--result", answer, "--non-interactive"],
-                   message: isOAuth && answer == "true" ? "Waiting for you to sign in with your browser…" : "Configuring…")
+                   message: isOAuth && answer == "true" ? String(localized: "Waiting for you to sign in with your browser…") : String(localized: "Configuring…"))
     }
 
     private func step(_ args: [String], message: String) async {
@@ -292,7 +292,7 @@ private struct OptionInput: View {
             SecureField(label, text: $text)
         } else {
             HStack {
-                TextField(label, text: $text, prompt: Text(option.defaultString.isEmpty ? (option.required ? "Required" : "Optional") : option.defaultString))
+                TextField(label, text: $text, prompt: Text(option.defaultString.isEmpty ? (option.required ? String(localized: "Required") : String(localized: "Optional")) : option.defaultString))
                 if !option.examples.isEmpty {
                     Menu {
                         ForEach(option.examples, id: \.value) { ex in

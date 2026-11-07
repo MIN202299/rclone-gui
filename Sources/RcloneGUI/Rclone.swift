@@ -9,7 +9,7 @@ enum RcloneError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notFound:
-            return "rclone isn't installed. Open the main window to install it, or set its location in Settings (⌘,)."
+            return String(localized: "rclone isn't installed. Open the main window to install it, or set its location in Settings (⌘,).")
         case .failed(let message):
             return message
         }
@@ -252,7 +252,7 @@ enum Rclone {
                 of: #"^\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} [A-Z]+\s*:\s*"#, with: "", options: .regularExpression)
         }.filter { !$0.isEmpty }
         let tail = lines.suffix(3).joined(separator: "\n")
-        return tail.isEmpty ? "rclone exited with status \(status)." : tail
+        return tail.isEmpty ? String(localized: "rclone exited with status \(status).") : tail
     }
 
     // MARK: Commands

@@ -70,7 +70,8 @@ struct BrowserView: View {
     }
 
     private var deleteTitle: String {
-        pendingDelete.count == 1 ? "Delete “\(pendingDelete[0].name)”?" : "Delete \(pendingDelete.count) items?"
+        pendingDelete.count == 1 ? String(localized: "Delete “\(pendingDelete[0].name)”?")
+            : String(localized: "Delete \(pendingDelete.count) items?")
     }
 
     // MARK: Table
@@ -122,7 +123,7 @@ struct BrowserView: View {
         .overlay { overlay }
         .overlay(alignment: .bottom) {
             if let loading = model.loading {
-                LoadingToast(transfer: loading) { model.cancelLoading() }
+                LoadingToast(transfer: loading, message: model.loadingMessage) { model.cancelLoading() }
                     .padding(.bottom, 14)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -290,8 +291,8 @@ struct BrowserView: View {
         panel.canChooseFiles = true
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
-        panel.prompt = "Upload"
-        panel.message = "Choose files or folders to upload to \(model.target())"
+        panel.prompt = String(localized: "Upload")
+        panel.message = String(localized: "Choose files or folders to upload to \(model.target())")
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
         model.upload(panel.urls)
         showingTransfers = true
@@ -303,8 +304,8 @@ struct BrowserView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.prompt = "Download Here"
-        panel.message = items.count == 1 ? "Choose where to save “\(items[0].name)”" : "Choose where to save \(items.count) items"
+        panel.prompt = String(localized: "Download Here")
+        panel.message = items.count == 1 ? String(localized: "Choose where to save “\(items[0].name)”") : String(localized: "Choose where to save \(items.count) items")
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
         guard panel.runModal() == .OK, let url = panel.url else { return }
         model.download(items, to: url)
@@ -363,6 +364,7 @@ private struct ProgressRing: View {
 /// Floating "Loading preview…" bar shown while a file is fetched for opening or Quick Look.
 private struct LoadingToast: View {
     let transfer: Transfer
+    let message: String
     let cancel: () -> Void
 
     var body: some View {
@@ -375,7 +377,7 @@ private struct LoadingToast: View {
                 ProgressView().controlSize(.small)
             }
             VStack(alignment: .leading, spacing: 1) {
-                Text("\(transfer.detail.replacingOccurrences(of: "…", with: "")) “\(transfer.title)”…")
+                Text(message)
                     .lineLimit(1).truncationMode(.middle)
                 Text(transfer.statusText)
                     .font(.caption).foregroundStyle(.secondary).monospacedDigit()
@@ -470,12 +472,12 @@ private struct StatusBar: View {
         let files = entries.count - folders
         let bytes = entries.filter { !$0.isDir && $0.size > 0 }.reduce(Int64(0)) { $0 + $1.size }
         var parts: [String] = []
-        if folders > 0 { parts.append(folders == 1 ? "1 folder" : "\(folders) folders") }
-        if files > 0 { parts.append(files == 1 ? "1 file" : "\(files) files") }
-        if parts.isEmpty { return model.isLoading ? "Loading…" : "No items" }
-        var text = parts.joined(separator: ", ")
+        if folders > 0 { parts.append(folders == 1 ? String(localized: "1 folder") : String(localized: "\(folders) folders")) }
+        if files > 0 { parts.append(files == 1 ? String(localized: "1 file") : String(localized: "\(files) files")) }
+        if parts.isEmpty { return model.isLoading ? String(localized: "Loading…") : String(localized: "No items") }
+        var text = parts.joined(separator: String(localized: ", ", comment: "Separates “3 folders” and “5 files” in the status bar"))
         if bytes > 0 { text += " · \(bytes.byteString)" }
-        if !model.selection.isEmpty { text = "\(model.selection.count) selected of " + text }
+        if !model.selection.isEmpty { text = String(localized: "\(model.selection.count) selected of \(text)") }
         return text
     }
 }

@@ -23,8 +23,8 @@ struct SyncStatusLine: View {
         } else if let last = task.lastRun {
             let ok = task.lastSuccess == true
             Label {
-                Text(ok ? "Synced \(last.formatted(.relative(presentation: .named))) · \(task.lastMessage ?? "")"
-                        : (task.lastMessage ?? "Failed"))
+                Text(ok ? String(localized: "Synced \(last.formatted(.relative(presentation: .named))) · \(task.lastMessage ?? "")")
+                        : (task.lastMessage ?? String(localized: "Failed")))
                     .lineLimit(2)
                     .help(task.lastMessage ?? "")
             } icon: {
@@ -202,7 +202,7 @@ struct SyncTaskEditor: View {
                 Section("Folders") {
                     LabeledContent("Local folder") {
                         HStack {
-                            Text(task.localPath.isEmpty ? "None" : SyncManager.displayPath(task.localPath))
+                            Text(task.localPath.isEmpty ? String(localized: "None") : SyncManager.displayPath(task.localPath))
                                 .foregroundStyle(task.localPath.isEmpty ? .secondary : .primary)
                                 .lineLimit(1).truncationMode(.middle)
                             Button("Choose…") { chooseLocal() }
@@ -264,9 +264,9 @@ struct SyncTaskEditor: View {
     }
 
     private var problem: String? {
-        if task.name.trimmingCharacters(in: .whitespaces).isEmpty { return "Enter a name." }
-        if task.localPath.isEmpty { return "Choose a local folder." }
-        if task.remote.isEmpty { return "Choose a remote." }
+        if task.name.trimmingCharacters(in: .whitespaces).isEmpty { return String(localized: "Enter a name.") }
+        if task.localPath.isEmpty { return String(localized: "Choose a local folder.") }
+        if task.remote.isEmpty { return String(localized: "Choose a remote.") }
         return nil
     }
 
@@ -275,8 +275,8 @@ struct SyncTaskEditor: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.prompt = "Choose"
-        panel.message = "Choose the local folder to keep in sync with \(task.remoteTarget)"
+        panel.prompt = String(localized: "Choose")
+        panel.message = String(localized: "Choose the local folder to keep in sync with \(task.remoteTarget)")
         if !task.localPath.isEmpty { panel.directoryURL = task.localURL }
         guard panel.runModal() == .OK, let url = panel.url else { return }
         task.localPath = url.path

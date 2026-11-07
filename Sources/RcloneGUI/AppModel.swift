@@ -60,7 +60,7 @@ final class AppModel {
         let running = activeTransfers.filter { $0.totalBytes > 0 }
         let done = running.reduce(Int64(0)) { $0 + $1.bytes }
         let total = running.reduce(Int64(0)) { $0 + $1.totalBytes }
-        return "\(done.byteString) of \(total.byteString)"
+        return String(localized: "\(done.byteString) of \(total.byteString)")
     }
 
     var pathComponents: [String] { path.split(separator: "/").map(String.init) }
@@ -225,7 +225,7 @@ final class AppModel {
             do {
                 _ = try await Rclone.run(item.isDir ? ["purge", target(item.path)] : ["deletefile", target(item.path)])
             } catch {
-                alertMessage = "Couldn't delete “\(item.name)”: \(error.localizedDescription)"
+                alertMessage = String(localized: "Couldn't delete “\(item.name)”: \(error.localizedDescription)")
                 break
             }
         }
@@ -281,7 +281,7 @@ final class AppModel {
 
     /// Opens a remote file with its default app, via the local file cache.
     func preview(_ entry: Entry) {
-        fetchToCache(entry, verb: "Opened") { NSWorkspace.shared.open($0) }
+        fetchToCache(entry, forPreview: false) { NSWorkspace.shared.open($0) }
     }
 
     // MARK: Quick Look
@@ -296,7 +296,7 @@ final class AppModel {
         guard !entry.isDir else { return }
         let key = target(entry.path)
         pendingQuickLook = key
-        fetchToCache(entry, verb: "Previewed") { [weak self] url in
+        fetchToCache(entry, forPreview: true) { [weak self] url in
             guard let self, self.pendingQuickLook == key else { return }
             self.pendingQuickLook = nil
             self.present(url)
@@ -334,7 +334,7 @@ final class AppModel {
 
     /// Brings a remote file into the local cache, then calls `completion` with its local URL.
     /// `rclone copyto` skips the download when the cached copy still matches the remote.
-    private func fetchToCache(_ entry: Entry, verb: String, completion: @escaping (URL) -> Void) {
+    private func fetchToCache(_ entry: Entry, forPreview: Bool, completion: @escaping (URL) -> Void) {
         guard let remote = selectedRemoteName else { return }
         let fm = FileManager.default
         let file = FileCache.url(remote: remote, path: entry.path)
@@ -351,19 +351,24 @@ final class AppModel {
 
         let wasCached = fm.fileExists(atPath: file.path)
         let t = Transfer(kind: .open, title: entry.name,
-                         detail: verb == "Opened" ? "Opening…" : "Loading preview…", localURL: file,
-                         remoteTarget: target(entry.path))
+                         detail: forPreview ? String(localized: "Loading preview…") : String(localized: "Opening…"),
+                         localURL: file, remoteTarget: target(entry.path))
         loading = t
+        loadingMessage = forPreview ? String(localized: "Loading preview of “\(entry.name)”…")
+            : String(localized: "Opening “\(entry.name)”…")
         loadingEntryID = entry.id
         let finish: (Transfer) -> Void = { [weak self] t in
             if let self, self.loading === t { self.loading = nil; self.loadingEntryID = nil }
             let available = fm.fileExists(atPath: file.path)
             if t.state == .done {
-                if wasCached && t.totalBytes == 0 { t.note = "\(verb) from cache" }
+                if wasCached && t.totalBytes == 0 {
+                    t.note = forPreview ? String(localized: "Previewed from cache") : String(localized: "Opened from cache")
+                }
             } else if case .failed = t.state, wasCached, available {
                 // Remote unreachable: fall back to the last cached copy.
                 t.state = .done
-                t.note = "Offline — \(verb.lowercased()) the cached copy"
+                t.note = forPreview ? String(localized: "Offline — previewed the cached copy")
+                    : String(localized: "Offline — opened the cached copy")
             } else {
                 return
             }
@@ -431,6 +436,8 @@ final class AppModel {
 
     /// The open/preview fetch currently shown in the loading overlay.
     var loading: Transfer?
+    /// What the loading overlay says, e.g. "Opening “report.pdf”…".
+    var loadingMessage = ""
     var loadingEntryID: Entry.ID?
 
     func cancelLoading() {

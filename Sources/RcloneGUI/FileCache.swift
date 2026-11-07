@@ -61,8 +61,8 @@ enum FileCache {
         case notWritable, nested
         var errorDescription: String? {
             switch self {
-            case .notWritable: return "That folder can't be written to."
-            case .nested: return "Choose a folder outside the current cache folder."
+            case .notWritable: return String(localized: "That folder can't be written to.")
+            case .nested: return String(localized: "Choose a folder outside the current cache folder.")
             }
         }
     }
