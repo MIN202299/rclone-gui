@@ -260,9 +260,10 @@ struct BrowserView: View {
                 Divider()
                 Button("Sync Tasks…") { openWindow(id: "sync") }
             } label: {
-                Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+                Label("Sync", systemImage: "arrow.triangle.2.circlepath.icloud")
             }
             .menuIndicator(.hidden)
+            .accessibilityLabel("Sync")
             .help("Keep this folder in sync with a local folder")
         }
         ToolbarItemGroup(placement: .primaryAction) {
