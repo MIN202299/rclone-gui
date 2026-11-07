@@ -1,0 +1,460 @@
+import AppKit
+import Quartz
+import Foundation
+import Observation
+
+@Observable @MainActor
+final class AppModel {
+    // Remotes
+    var remotes: [Remote] = []
+    var selectedRemoteName: String? {
+        didSet {
+            guard selectedRemoteName != oldValue else { return }
+            backStack.removeAll(); forwardStack.removeAll()
+            path = ""
+            selection.removeAll()
+            entries = []
+            entriesTarget = nil
+            listError = nil
+            searchText = ""
+            Task { await reload(); await loadAbout() }
+        }
+    }
+    var remotesError: String?
+    var rcloneMissing = false
+
+    // Browser
+    var path = ""
+    var entries: [Entry] = []
+    var selection = Set<Entry.ID>()
+    var isLoading = false
+    var listError: String?
+    /// Which folder `entries` currently shows (a full rclone target).
+    private var entriesTarget: String?
+    /// Folder listings seen this session, shown instantly on revisit while a fresh listing loads.
+    @ObservationIgnored private var listCache: [String: [Entry]] = [:]
+    var searchText = ""
+    var backStack: [String] = []
+    var forwardStack: [String] = []
+
+    // Usage
+    var about: About?
+
+    // Transfers
+    var transfers: [Transfer] = []
+
+    // Banner for one-off operation failures (delete, rename…)
+    var alertMessage: String?
+
+    var selectedRemote: Remote? { remotes.first { $0.name == selectedRemoteName } }
+    var activeTransfers: [Transfer] { transfers.filter(\.isRunning) }
+
+    var overallProgress: Double? {
+        let running = activeTransfers.filter { $0.totalBytes > 0 }
+        let total = running.reduce(Int64(0)) { $0 + $1.totalBytes }
+        guard total > 0 else { return nil }
+        return Double(running.reduce(Int64(0)) { $0 + $1.bytes }) / Double(total)
+    }
+
+    var overallBytesText: String {
+        let running = activeTransfers.filter { $0.totalBytes > 0 }
+        let done = running.reduce(Int64(0)) { $0 + $1.bytes }
+        let total = running.reduce(Int64(0)) { $0 + $1.totalBytes }
+        return "\(done.byteString) of \(total.byteString)"
+    }
+
+    var pathComponents: [String] { path.split(separator: "/").map(String.init) }
+
+    var visibleEntries: [Entry] {
+        let q = searchText.trimmingCharacters(in: .whitespaces)
+        return q.isEmpty ? entries : entries.filter { $0.name.localizedCaseInsensitiveContains(q) }
+    }
+
+    var selectedEntries: [Entry] { entries.filter { selection.contains($0.id) } }
+
+    // MARK: Paths
+
+    func target(_ relative: String? = nil) -> String {
+        guard let remote = selectedRemoteName else { return "" }
+        return "\(remote):\(relative ?? path)"
+    }
+
+    static func join(_ a: String, _ b: String) -> String {
+        a.isEmpty ? b : "\(a)/\(b)"
+    }
+
+    // MARK: Loading
+
+    func loadRemotes() async {
+        do {
+            remotes = try await Rclone.remotes()
+            remotesError = nil
+            rcloneMissing = false
+            if selectedRemoteName == nil || !remotes.contains(where: { $0.name == selectedRemoteName }) {
+                selectedRemoteName = remotes.first?.name
+            }
+        } catch RcloneError.notFound {
+            rcloneMissing = true
+            remotes = []
+        } catch {
+            remotesError = error.localizedDescription
+        }
+    }
+
+    func reload() async {
+        guard selectedRemoteName != nil else { entries = []; return }
+        let requested = target()
+        let dir = path
+        if let cached = listCache[requested] {
+            if entriesTarget != requested { entries = cached; entriesTarget = requested; refreshCacheStatus() }
+        } else if entriesTarget != requested {
+            entries = []
+            entriesTarget = requested
+            cachedIDs = []
+        }
+        isLoading = true
+        listError = nil
+        defer { isLoading = false }
+        do {
+            // lsjson paths are relative to the listed folder; make them relative to the remote root.
+            let result = try await listEntries(requested, remote: selectedRemoteName ?? "", dir: dir).map { entry -> Entry in
+                var e = entry
+                e.path = Self.join(dir, entry.name)
+                return e
+            }
+            if listCache.count > 500 { listCache.removeAll() }
+            listCache[requested] = result
+            guard requested == target() else { return } // user navigated away meanwhile
+            if result != entries { entries = result }
+            selection = selection.filter { id in result.contains { $0.id == id } }
+            refreshCacheStatus()
+        } catch {
+            listCache[requested] = nil
+            guard requested == target() else { return }
+            entries = []
+            listError = error.localizedDescription
+        }
+    }
+
+    func loadAbout() async {
+        guard let remote = selectedRemoteName else { about = nil; return }
+        about = nil
+        var result = try? await RcloneDaemon.shared.about(remote: remote)
+        if result == nil { result = try? await Rclone.about(remote) }
+        if remote == selectedRemoteName { about = result }
+    }
+
+    /// Lists through the background rclone (fast); falls back to a one-shot process if it's unavailable.
+    private func listEntries(_ target: String, remote: String, dir: String) async throws -> [Entry] {
+        do {
+            return try await RcloneDaemon.shared.list(remote: remote, path: dir)
+        } catch where DaemonUnavailable.matches(error) {
+            return try await Rclone.list(target)
+        }
+    }
+
+    // MARK: Navigation
+
+    func navigate(to newPath: String) {
+        guard newPath != path else { return }
+        backStack.append(path)
+        forwardStack.removeAll()
+        go(newPath)
+    }
+
+    func goBack() {
+        guard let previous = backStack.popLast() else { return }
+        forwardStack.append(path)
+        go(previous)
+    }
+
+    func goForward() {
+        guard let next = forwardStack.popLast() else { return }
+        backStack.append(path)
+        go(next)
+    }
+
+    func goUp() {
+        guard !path.isEmpty else { return }
+        navigate(to: pathComponents.dropLast().joined(separator: "/"))
+    }
+
+    private func go(_ newPath: String) {
+        path = newPath
+        selection.removeAll()
+        searchText = ""
+        Task { await reload() }
+    }
+
+    func open(_ entry: Entry) {
+        if entry.isDir {
+            navigate(to: Self.join(path, entry.name))
+        } else {
+            preview(entry)
+        }
+    }
+
+    // MARK: File operations
+
+    private func perform(_ args: [String], refresh: Bool = true) async {
+        do {
+            _ = try await Rclone.run(args)
+        } catch {
+            alertMessage = error.localizedDescription
+        }
+        if refresh { await reload() }
+    }
+
+    func makeFolder(named name: String) async {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        await perform(["mkdir", target(Self.join(path, name))])
+        selection = [Self.join(path, name)]
+    }
+
+    func rename(_ entry: Entry, to newName: String) async {
+        let newName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !newName.isEmpty, newName != entry.name else { return }
+        let dest = target(Self.join(path, newName))
+        await perform(["moveto", target(entry.path), dest])
+    }
+
+    func delete(_ items: [Entry]) async {
+        for item in items {
+            do {
+                _ = try await Rclone.run(item.isDir ? ["purge", target(item.path)] : ["deletefile", target(item.path)])
+            } catch {
+                alertMessage = "Couldn't delete “\(item.name)”: \(error.localizedDescription)"
+                break
+            }
+        }
+        selection.removeAll()
+        await reload()
+        await loadAbout()
+    }
+
+    func copyPath(_ items: [Entry]) {
+        let text = items.map { target($0.path) }.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    // MARK: Transfers
+
+    private func startTransfer(_ transfer: Transfer, args: [String], then: ((Transfer) -> Void)? = nil) {
+        startTransfer(transfer, then: then) { $0.start(args: args) }
+    }
+
+    private func startTransfer(_ transfer: Transfer, then: ((Transfer) -> Void)?, launch: (Transfer) -> Void) {
+        transfers.insert(transfer, at: 0)
+        transfer.onFinish = { [weak self] t in
+            then?(t)
+            guard let self else { return }
+            if t.kind == .upload || t.kind == .copy || t.kind == .sync {
+                Task { await self.reload(); await self.loadAbout() }
+            }
+        }
+        launch(transfer)
+    }
+
+    func upload(_ urls: [URL]) {
+        guard selectedRemoteName != nil else { return }
+        let destDir = path
+        for url in urls {
+            var isDir: ObjCBool = false
+            FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            let dest = isDir.boolValue ? target(Self.join(destDir, url.lastPathComponent)) : target(destDir)
+            let t = Transfer(kind: .upload, title: url.lastPathComponent, detail: "→ \(dest)")
+            startTransfer(t, args: ["copy", url.path, dest])
+        }
+    }
+
+    func download(_ items: [Entry], to folder: URL) {
+        for item in items {
+            let local = item.isDir ? folder.appendingPathComponent(item.name) : folder
+            let t = Transfer(kind: .download, title: item.name, detail: "→ \(folder.path)",
+                             localURL: folder.appendingPathComponent(item.name), remoteTarget: target(item.path))
+            startTransfer(t, args: ["copy", target(item.path), local.path])
+        }
+    }
+
+    /// Opens a remote file with its default app, via the local file cache.
+    func preview(_ entry: Entry) {
+        fetchToCache(entry, verb: "Opened") { NSWorkspace.shared.open($0) }
+    }
+
+    // MARK: Quick Look
+
+    /// Local file currently shown in the Quick Look panel (nil = panel closed).
+    var quickLookURL: URL?
+    /// Remote path being fetched for Quick Look; a newer request supersedes it.
+    @ObservationIgnored private var pendingQuickLook: String?
+
+    /// Shows a file in Quick Look (like pressing Space in Finder), fetching it into the cache first.
+    func quickLook(_ entry: Entry) {
+        guard !entry.isDir else { return }
+        let key = target(entry.path)
+        pendingQuickLook = key
+        fetchToCache(entry, verb: "Previewed") { [weak self] url in
+            guard let self, self.pendingQuickLook == key else { return }
+            self.pendingQuickLook = nil
+            self.present(url)
+        }
+    }
+
+    /// Whether the Quick Look panel is really on screen. The panel can be closed from its own
+    /// window (Space, Esc, close button) without the binding being reset, so ask the panel.
+    var isQuickLookVisible: Bool {
+        QLPreviewPanel.sharedPreviewPanelExists() && QLPreviewPanel.shared().isVisible
+    }
+
+    /// Shows `url` in Quick Look. SwiftUI only presents the panel when the bound URL *changes*;
+    /// a cached file can resolve synchronously (or repeat the previous URL), so when the panel
+    /// isn't already on screen, clear the binding and set it again on the next run-loop turn.
+    private func present(_ url: URL) {
+        if isQuickLookVisible {
+            quickLookURL = url
+        } else {
+            quickLookURL = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in self?.quickLookURL = url }
+        }
+    }
+
+    func toggleQuickLook() {
+        if isQuickLookVisible || pendingQuickLook != nil {
+            quickLookURL = nil
+            pendingQuickLook = nil
+            if isQuickLookVisible { QLPreviewPanel.shared().orderOut(nil) }
+        } else if selectedEntries.count == 1 {
+            quickLookURL = nil // clear a stale value left by a panel closed from its own window
+            quickLook(selectedEntries[0])
+        }
+    }
+
+    /// Brings a remote file into the local cache, then calls `completion` with its local URL.
+    /// `rclone copyto` skips the download when the cached copy still matches the remote.
+    private func fetchToCache(_ entry: Entry, verb: String, completion: @escaping (URL) -> Void) {
+        guard let remote = selectedRemoteName else { return }
+        let fm = FileManager.default
+        let file = FileCache.url(remote: remote, path: entry.path)
+            ?? fm.temporaryDirectory.appendingPathComponent("RcloneGUI/\(UUID().uuidString)/\(entry.name)")
+        try? fm.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+
+        // Instant path: the folder listing already tells us the remote size and modification time,
+        // and rclone stamps cached copies with the remote time — if both match, skip rclone entirely.
+        if Self.cachedCopyMatches(file, entry) {
+            FileCache.markUsed(file)
+            completion(file)
+            return
+        }
+
+        let wasCached = fm.fileExists(atPath: file.path)
+        let t = Transfer(kind: .open, title: entry.name,
+                         detail: verb == "Opened" ? "Opening…" : "Loading preview…", localURL: file,
+                         remoteTarget: target(entry.path))
+        loading = t
+        loadingEntryID = entry.id
+        let finish: (Transfer) -> Void = { [weak self] t in
+            if let self, self.loading === t { self.loading = nil; self.loadingEntryID = nil }
+            let available = fm.fileExists(atPath: file.path)
+            if t.state == .done {
+                if wasCached && t.totalBytes == 0 { t.note = "\(verb) from cache" }
+            } else if case .failed = t.state, wasCached, available {
+                // Remote unreachable: fall back to the last cached copy.
+                t.state = .done
+                t.note = "Offline — \(verb.lowercased()) the cached copy"
+            } else {
+                return
+            }
+            FileCache.markUsed(file)
+            completion(file)
+            self?.refreshCacheStatus()
+            Task.detached(priority: .utility) {
+                FileCache.enforceLimit(keeping: file)
+                await self?.refreshCacheStatus()
+            }
+        }
+        startTransfer(t, then: finish) { t in
+            t.startJob("operations/copyfile", [
+                "srcFs": "\(remote):", "srcRemote": entry.path,
+                "dstFs": file.deletingLastPathComponent().path, "dstRemote": file.lastPathComponent,
+            ], fallbackArgs: ["copyto", target(entry.path), file.path])
+        }
+    }
+
+    nonisolated private static func cachedCopyMatches(_ file: URL, _ entry: Entry) -> Bool {
+        guard entry.size >= 0, entry.modTime != .distantPast,
+              let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
+              (attrs[.size] as? NSNumber)?.int64Value == entry.size,
+              let modified = attrs[.modificationDate] as? Date else { return false }
+        return abs(modified.timeIntervalSince(entry.modTime)) < 1
+    }
+
+    // MARK: Per-file status
+
+    /// Rows in the current folder whose cached copy matches the remote (opens instantly).
+    var cachedIDs: Set<Entry.ID> = []
+
+    /// Re-checks which listed files have an up-to-date cached copy (off the main thread).
+    func refreshCacheStatus() {
+        guard let remote = selectedRemoteName else { cachedIDs = []; return }
+        let files = entries.filter { !$0.isDir }
+        let shownTarget = target()
+        Task {
+            let ids = await Task.detached(priority: .utility) { () -> Set<Entry.ID> in
+                Set(files.compactMap { e in
+                    guard let url = FileCache.url(remote: remote, path: e.path),
+                          AppModel.cachedCopyMatches(url, e) else { return nil }
+                    return e.id
+                })
+            }.value
+            if shownTarget == target() { cachedIDs = ids }
+        }
+    }
+
+    /// A running transfer reading this row's remote item (download, open or preview), if any.
+    func activeTransfer(for entry: Entry) -> Transfer? {
+        let t = target(entry.path)
+        return transfers.first { $0.isRunning && $0.remoteTarget == t }
+    }
+
+    /// The open/preview fetch currently shown in the loading overlay.
+    var loading: Transfer?
+    var loadingEntryID: Entry.ID?
+
+    func cancelLoading() {
+        loading?.cancel()
+        loading = nil
+        loadingEntryID = nil
+        pendingQuickLook = nil
+    }
+
+    enum SyncDirection { case localToRemote, remoteToLocal }
+
+    /// One-way mirror with `rclone sync`: the destination is made identical to the source,
+    /// including deleting files that only exist in the destination.
+    func sync(local: URL, direction: SyncDirection) {
+        let remote = target()
+        let toRemote = direction == .localToRemote
+        let t = Transfer(kind: .sync, title: "Sync \(local.lastPathComponent)",
+                         detail: toRemote ? "\(local.path) → \(remote)" : "\(remote) → \(local.path)",
+                         localURL: local)
+        startTransfer(t, args: toRemote ? ["sync", local.path, remote] : ["sync", remote, local.path])
+    }
+
+    func clearFinishedTransfers() {
+        transfers.removeAll { !$0.isRunning }
+    }
+
+    // MARK: Remotes management
+
+    func deleteRemote(_ name: String) async {
+        do {
+            _ = try await Rclone.run(["config", "delete", name])
+        } catch {
+            alertMessage = error.localizedDescription
+        }
+        if selectedRemoteName == name { selectedRemoteName = nil }
+        await loadRemotes()
+    }
+}
