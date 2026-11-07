@@ -135,6 +135,14 @@ final class RcloneDaemon {
         let obj = try await call("operations/about", ["fs": "\(remote):"])
         return try JSONDecoder().decode(About.self, from: JSONSerialization.data(withJSONObject: obj))
     }
+
+    /// Whether the remote can't keep modification times (e.g. some WebDAV servers). rclone then
+    /// compares files by size alone, and the times it lists may change without the file changing.
+    func modTimeUnsupported(remote: String) async throws -> Bool {
+        let obj = try await call("operations/fsinfo", ["fs": "\(remote):"])
+        let precision = (obj["Precision"] as? NSNumber)?.int64Value ?? 0
+        return precision >= 3_153_600_000_000_000_000 // rclone's ModTimeNotSupported: 100 years in ns
+    }
 }
 
 private final class LockedText: @unchecked Sendable {

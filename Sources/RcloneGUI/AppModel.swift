@@ -18,6 +18,7 @@ final class AppModel {
             listError = nil
             searchText = ""
             Task { await reload(); await loadAbout() }
+            Task { await checkModTimeSupport() }
         }
     }
     var remotesError: String?
@@ -343,7 +344,7 @@ final class AppModel {
 
         // Instant path: the folder listing already tells us the remote size and modification time,
         // and rclone stamps cached copies with the remote time — if both match, skip rclone entirely.
-        if Self.cachedCopyMatches(file, entry) {
+        if Self.cachedCopyMatches(file, entry, sizeOnly: sizeOnlyRemotes[remote] == true) {
             FileCache.markUsed(file)
             completion(file)
             return
@@ -390,13 +391,27 @@ final class AppModel {
 
     /// Whether the cached copy still matches the remote item. Normally size + modification time;
     /// for items without a fixed size (Google Docs/Sheets/Slides, exported on download) the cached
-    /// export's size can't be compared, so the modification time alone decides.
-    nonisolated private static func cachedCopyMatches(_ file: URL, _ entry: Entry) -> Bool {
+    /// export's size can't be compared, so the modification time alone decides. On remotes that
+    /// can't keep modification times (`sizeOnly`), the listed time isn't stable, so — like rclone
+    /// itself on those remotes — only the size is compared.
+    nonisolated private static func cachedCopyMatches(_ file: URL, _ entry: Entry, sizeOnly: Bool) -> Bool {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: file.path) else { return false }
+        let size = (attrs[.size] as? NSNumber)?.int64Value
+        if sizeOnly { return entry.size >= 0 && size == entry.size }
         guard entry.modTime != .distantPast,
-              let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
               let modified = attrs[.modificationDate] as? Date,
               abs(modified.timeIntervalSince(entry.modTime)) < 1 else { return false }
-        return entry.size < 0 || (attrs[.size] as? NSNumber)?.int64Value == entry.size
+        return entry.size < 0 || size == entry.size
+    }
+
+    /// Remotes whose modification times rclone says are unsupported, so the cache compares sizes only.
+    @ObservationIgnored private var sizeOnlyRemotes: [String: Bool] = [:]
+
+    private func checkModTimeSupport() async {
+        guard let remote = selectedRemoteName, sizeOnlyRemotes[remote] == nil,
+              let unsupported = try? await RcloneDaemon.shared.modTimeUnsupported(remote: remote) else { return }
+        sizeOnlyRemotes[remote] = unsupported
+        if unsupported, remote == selectedRemoteName { refreshCacheStatus() }
     }
 
     // MARK: Per-file status
@@ -411,12 +426,13 @@ final class AppModel {
         guard let remote = selectedRemoteName else { cachedIDs = []; cachedSizes = [:]; return }
         let files = entries.filter { !$0.isDir }
         let shownTarget = target()
+        let sizeOnly = sizeOnlyRemotes[remote] == true
         Task {
             let (ids, sizes) = await Task.detached(priority: .utility) { () -> (Set<Entry.ID>, [Entry.ID: Int64]) in
                 var ids = Set<Entry.ID>(), sizes = [Entry.ID: Int64]()
                 for e in files {
                     guard let url = FileCache.url(remote: remote, path: e.path),
-                          AppModel.cachedCopyMatches(url, e) else { continue }
+                          AppModel.cachedCopyMatches(url, e, sizeOnly: sizeOnly) else { continue }
                     ids.insert(e.id)
                     if e.size < 0, let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber {
                         sizes[e.id] = size.int64Value
