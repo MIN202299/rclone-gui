@@ -149,6 +149,16 @@
         }
       }
     },
+    "%lld more sync tasks": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "另外 %lld 个同步任务"
+          }
+        }
+      }
+    },
     "%lld selected of %@": {
       "localizations": {
         "en": {
@@ -171,6 +181,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld 个传输"
+          }
+        }
+      }
+    },
+    "%lld uploads or downloads": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 个上传或下载"
           }
         }
       }
@@ -248,6 +268,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 个传输"
+          }
+        }
+      }
+    },
+    "1 upload or download": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 个上传或下载"
           }
         }
       }
@@ -1768,6 +1798,26 @@
         }
       }
     },
+    "Quit Anyway": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仍然退出"
+          }
+        }
+      }
+    },
+    "Quitting stops them now. Interrupted syncs can be run again later; uploads and downloads have to be started again.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出会立即停止这些任务。中断的同步之后可以再次运行；上传和下载需要重新开始。"
+          }
+        }
+      }
+    },
     "Rclone": {
       "shouldTranslate": false
     },
@@ -2207,12 +2257,32 @@
         }
       }
     },
+    "Syncing “%@”": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在同步“%@”"
+          }
+        }
+      }
+    },
     "System Default": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "跟随系统"
+          }
+        }
+      }
+    },
+    "Tasks are still running. Quit Rclone?": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仍有任务在进行，要退出 Rclone 吗？"
           }
         }
       }

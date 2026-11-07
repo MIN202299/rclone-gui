@@ -186,6 +186,9 @@ final class SyncManager {
 
     func cancel(_ id: UUID) { running[id]?.cancel() }
 
+    /// Stops every running sync (used when the app quits, so no rclone keeps running unseen).
+    func cancelAll() { running.values.forEach { $0.cancel() } }
+
     /// Rebuilds a two-way task's baseline (merges both sides without deleting) and syncs.
     func repair(_ id: UUID) {
         guard let task = task(id) else { return }

@@ -14,6 +14,7 @@ struct RcloneGUIApp: App {
                 .environment(sync)
                 .frame(minWidth: 820, minHeight: 480)
                 .task {
+                    QuitGuard.model = model
                     sync.onTransferStarted = { [model] in model.adoptTransfer($0) }
                     sync.onTaskFinished = { [model] task in
                         // Refresh the open folder if this sync changed it.
@@ -76,8 +77,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        MainActor.assumeIsolated { QuitGuard.confirm() ? .terminateNow : .terminateCancel }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
-        MainActor.assumeIsolated { RcloneDaemon.shared.stop() }
+        MainActor.assumeIsolated {
+            QuitGuard.stopAll()
+            RcloneDaemon.shared.stop()
+        }
     }
 
     // Keep running in the menu bar so transfers continue after the window closes.

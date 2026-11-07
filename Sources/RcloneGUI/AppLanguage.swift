@@ -44,7 +44,8 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     /// Quits and opens the app again once this process has exited.
     @MainActor
     static func relaunch() {
-        guard canRelaunch else { return }
+        // Ask about running tasks before scheduling the relaunch, so cancelling doesn't leave it pending.
+        guard canRelaunch, QuitGuard.confirm() else { return }
         let pid = ProcessInfo.processInfo.processIdentifier
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sh")

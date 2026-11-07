@@ -49,7 +49,7 @@ xattr -dr com.apple.quarantine /Applications/Rclone.app
   - **Two-way**: changes on either side, including deletions, are copied to the other (`rclone bisync`). When a file changed on both sides the newer one wins and the other is kept with a numbered name. The first run merges both folders without deleting anything.
 
   Tasks can run **manually**, **on a schedule** (every 5 minutes to daily) and/or **when local files change**. They keep running while only the menu bar icon is showing. The Sync Tasks window, the menu bar panel, and a banner above any synced folder show each task's last result and live progress, with **Sync Now**, Stop, Pause and Edit. As a safeguard, a one-way sync is skipped when its source folder is empty, so a missing drive or an emptied folder can't wipe the other side. Two-way sync also stops if more than half the files would be deleted (rclone's own check).
-- **Menu bar icon:** a cloud that turns into a sync cloud while jobs are running. Click it to see each job's progress, cancel jobs, or reopen the main window. The app keeps running in the menu bar after you close the window, so transfers continue; clicking the Dock icon brings the window back.
+- **Menu bar icon:** a cloud that turns into a sync cloud while jobs are running. Click it to see each job's progress, cancel jobs, or reopen the main window. The app keeps running in the menu bar after you close the window, so transfers continue; clicking the Dock icon brings the window back. Quitting while syncs, uploads or downloads are running asks first, and quitting stops them.
 - **Fast on slow-to-connect remotes:** the app keeps one `rclone rcd` running in the background, listening only on 127.0.0.1 with a random password and stopped when the app quits. Folder listings and file fetches reuse its remote connections instead of starting rclone and logging in again each time. If the background rclone can't start, the app falls back to running a separate rclone for each action.
 - **Add Remote wizard** built from `rclone config providers` (all ~70 backends). It shows the required and optional fields, then asks rclone's follow-up questions inside the app, including browser OAuth sign-in for Google Drive, Dropbox, OneDrive and others.
 - **Remove remote.** This only deletes the config entry and never touches the cloud files.
@@ -133,6 +133,7 @@ Sources/RcloneGUI/
   SyncManager.swift       saved sync tasks: running, scheduling, folder watching
   SyncViews.swift         Sync Tasks window, task editor, folder banner
   AppLanguage.swift       interface language setting and relaunch
+  QuitGuard.swift         asks before quitting while jobs run; stops them on quit
 Resources/AppIcon.icon    Icon Composer document (light + dark)
 Resources/Localizable.xcstrings  UI strings and their translations (English / Simplified Chinese)
 scripts/bundle.sh         packages the release build into a .app
