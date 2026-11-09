@@ -20,6 +20,9 @@ final class RcloneDaemon {
     private var lifeline: FileHandle?
     /// Marks the rclone processes this app starts, so stale ones can be told apart from the user's own.
     private static let realm = "rclone-gui"
+    /// Called when a new background rclone replaces an earlier one, which took its servers with it.
+    var onRestart: (() -> Void)?
+    private var launches = 0
 
     /// Runs rclone as a child of a small shell that stops it as soon as its stdin reaches EOF
     /// (the app is gone) or the shell itself is told to stop. macOS has no "kill me when my
@@ -110,6 +113,8 @@ final class RcloneDaemon {
         baseURL = url
         launchedExe = exe
         authHeader = "Basic " + Data("\(user):\(pass)".utf8).base64EncodedString()
+        launches += 1
+        if launches > 1, let onRestart { Task { @MainActor in onRestart() } }
         return url
     }
 

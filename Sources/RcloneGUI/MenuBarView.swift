@@ -12,6 +12,7 @@ struct MenuBarLabel: View {
             .onAppear {
                 MainWindow.open = { openWindow(id: "main") }
                 MainWindow.openSync = { openWindow(id: "sync"); NSApp.activate(ignoringOtherApps: true) }
+                MainWindow.openShares = { openWindow(id: "shares"); NSApp.activate(ignoringOtherApps: true) }
             }
     }
 }
@@ -19,6 +20,7 @@ struct MenuBarLabel: View {
 struct MenuBarView: View {
     @Environment(AppModel.self) private var model
     @Environment(SyncManager.self) private var sync
+    @Environment(ShareManager.self) private var shares
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -27,6 +29,10 @@ struct MenuBarView: View {
             Divider()
             if !sync.tasks.isEmpty {
                 syncSection
+                Divider()
+            }
+            if !shares.shares.isEmpty {
+                sharesSection
                 Divider()
             }
             if model.transfers.isEmpty {
@@ -92,6 +98,41 @@ struct MenuBarView: View {
             }
         }
         .padding(12)
+    }
+
+    private var sharesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("WebDAV Shares").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Spacer()
+                Button("Manage…") { MainWindow.openShares?() }.buttonStyle(.borderless).font(.caption)
+            }
+            ForEach(shares.shares.prefix(6)) { share in
+                let status = shares.status(share.id)
+                HStack(spacing: 8) {
+                    ShareStatusIcon(status: status)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(share.name).lineLimit(1)
+                        Group {
+                            if status == .running { Text(verbatim: share.urls(on: shares.settings)[0]) } else { Text(status.text) }
+                        }
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    if status == .running {
+                        CopyButton(text: share.urls(on: shares.settings)[0])
+                    }
+                    Button { shares.toggle(share.id) } label: {
+                        Image(systemName: shares.isActive(share.id) ? "stop.circle" : "play.circle")
+                    }
+                    .help(shares.isActive(share.id) ? "Stop" : "Start")
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .padding(12)
+        .task { await shares.refresh() }
     }
 
     private var header: some View {

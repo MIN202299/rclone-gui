@@ -14,6 +14,9 @@ struct BrowserView: View {
     @State private var isDropTargeted = false
     @State private var newSyncTask: SyncTask?
     @State private var showingUnlock = false
+    /// An encrypted backup listed in the open folder, to unlock before sharing it.
+    @State private var unlockToShare: Entry?
+    @State private var newShare: ShareDraft?
     @Environment(SyncManager.self) private var sync
     @Environment(\.openWindow) private var openWindow
 
@@ -73,6 +76,29 @@ struct BrowserView: View {
             SyncTaskEditor(task: task, isNew: true)
         }
         .sheet(isPresented: $showingUnlock) { UnlockSheet() }
+        .sheet(item: $newShare) { ShareEditor(draft: $0) }
+        .sheet(item: $unlockToShare) { entry in
+            UnlockSheet(root: entry.path, name: entry.name) {
+                // Present the share editor once this sheet has gone.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { newShare = model.newShare(for: entry.path) }
+            }
+        }
+    }
+
+    /// Shares a listed folder. An encrypted backup that isn't unlocked yet is unlocked first
+    /// (with a saved password, or by asking), so its files are shared decrypted.
+    private func share(_ entry: Entry) {
+        guard model.isEncryptedFolder(entry), model.cryptFolder(for: entry.path) == nil else {
+            newShare = model.newShare(for: entry.path)
+            return
+        }
+        Task {
+            if await model.unlockWithSavedPassword(at: entry.path) {
+                newShare = model.newShare(for: entry.path)
+            } else {
+                unlockToShare = entry
+            }
+        }
     }
 
     /// Tries the passwords in the keychain first; asks only if none of them works.
@@ -240,6 +266,9 @@ struct BrowserView: View {
                 }
             }
             Button("Copy Path") { model.copyPath(items) }
+            if items.count == 1, let entry = items.first, entry.isDir {
+                Button("Share via WebDAV…") { share(entry) }
+            }
             Divider()
             Button("Delete…", role: .destructive) { pendingDelete = items }
         } else if model.isLockedHere {
@@ -248,6 +277,8 @@ struct BrowserView: View {
         } else {
             Button("New Folder…") { newFolderName = ""; showingNewFolder = true }
             Button("Upload…") { chooseUploads() }
+            Button("Share This Folder via WebDAV…") { newShare = model.newShare(for: model.path) }
+            Divider()
             Button("Refresh") { Task { await model.reload() } }
         }
     }
@@ -572,8 +603,11 @@ private struct CryptBanner: View {
     }
 }
 
-/// Asks for the password of the encrypted backup open in the browser.
+/// Asks for the password of an encrypted backup: the folder open in the browser, or `root`.
 private struct UnlockSheet: View {
+    var root: String? = nil
+    var name: String? = nil
+    var onUnlocked: () -> Void = {}
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var password = ""
@@ -586,7 +620,7 @@ private struct UnlockSheet: View {
             HStack(spacing: 12) {
                 Image(systemName: "lock.fill").font(.largeTitle).foregroundStyle(.tint)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Unlock “\(model.pathComponents.last ?? model.selectedRemoteName ?? "")”").font(.headline)
+                    Text("Unlock “\(name ?? model.pathComponents.last ?? model.selectedRemoteName ?? "")”").font(.headline)
                     Text("Enter the password of this encrypted backup.")
                         .foregroundStyle(.secondary)
                 }
@@ -620,8 +654,9 @@ private struct UnlockSheet: View {
         error = nil
         Task {
             do {
-                try await model.unlock(password: password, remember: remember)
+                try await model.unlock(password: password, remember: remember, at: root)
                 dismiss()
+                onUnlocked()
             } catch {
                 self.error = error.localizedDescription
                 password = ""

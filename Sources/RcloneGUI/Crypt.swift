@@ -255,12 +255,22 @@ enum Crypt {
 
 /// Passwords of encrypted backups, kept in the login keychain.
 enum CryptKeychain {
-    private static let service = "Rclone GUI encrypted backup"
+    private static let store = Keychain(service: "Rclone GUI encrypted backup")
 
     static func taskAccount(_ id: UUID) -> String { "task:\(id.uuidString)" }
     static func folderAccount(_ plainTarget: String) -> String { "folder:\(plainTarget)" }
 
-    static func password(_ account: String) -> String? {
+    static func password(_ account: String) -> String? { store.password(account) }
+    @discardableResult
+    static func setPassword(_ password: String, _ account: String) -> Bool { store.setPassword(password, account) }
+    static func delete(_ account: String) { store.delete(account) }
+}
+
+/// Generic passwords of one service in the login keychain.
+struct Keychain {
+    let service: String
+
+    func password(_ account: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
             kSecAttrAccount as String: account, kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne,
@@ -271,7 +281,7 @@ enum CryptKeychain {
     }
 
     @discardableResult
-    static func setPassword(_ password: String, _ account: String) -> Bool {
+    func setPassword(_ password: String, _ account: String) -> Bool {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
             kSecAttrAccount as String: account,
@@ -284,7 +294,7 @@ enum CryptKeychain {
         return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
     }
 
-    static func delete(_ account: String) {
+    func delete(_ account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
             kSecAttrAccount as String: account,

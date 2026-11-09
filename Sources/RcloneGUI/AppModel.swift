@@ -584,10 +584,10 @@ final class AppModel {
         return cryptFolder(for: relative) == nil ? remote : remote + " (encrypted)"
     }
 
-    /// Unlocks the encrypted backup open in the browser.
-    func unlock(password: String, remember: Bool) async throws {
+    /// Unlocks an encrypted backup on the selected remote (the open folder unless `root` is given).
+    func unlock(password: String, remember: Bool, at root: String? = nil) async throws {
         guard let remote = selectedRemoteName else { return }
-        let root = path
+        let root = root ?? path
         guard let marker = try await Crypt.readMarker(remote: remote, path: root) else {
             throw CryptError.notEncrypted(displayTarget(root))
         }
@@ -599,21 +599,21 @@ final class AppModel {
         if selectedRemoteName == remote && path == root { await reload() }
     }
 
-    /// Passwords in the keychain that may open the open folder: one remembered when it was unlocked
+    /// Passwords in the keychain that may open a folder: one remembered when it was unlocked
     /// before, and those of encrypted backup tasks for it.
-    private var savedPasswords: [String] {
-        let plain = displayTarget()
+    private func savedPasswords(_ root: String) -> [String] {
+        let plain = displayTarget(root)
         let tasks = SyncManager.shared.tasks.filter { $0.encrypted && $0.remoteTarget == plain }
         let accounts = [CryptKeychain.folderAccount(plain)] + tasks.map { CryptKeychain.taskAccount($0.id) }
         var seen = Set<String>()
         return accounts.compactMap(CryptKeychain.password).filter { seen.insert($0).inserted }
     }
 
-    /// Tries the saved passwords; true if one of them unlocked the open folder.
-    func unlockWithSavedPassword() async -> Bool {
-        for password in savedPasswords {
+    /// Tries the saved passwords; true if one of them unlocked the folder (the open one by default).
+    func unlockWithSavedPassword(at root: String? = nil) async -> Bool {
+        for password in savedPasswords(root ?? path) {
             do {
-                try await unlock(password: password, remember: false)
+                try await unlock(password: password, remember: false, at: root)
                 return true
             } catch {
                 continue

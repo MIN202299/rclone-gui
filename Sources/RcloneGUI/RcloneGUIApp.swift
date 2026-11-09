@@ -6,12 +6,14 @@ struct RcloneGUIApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var model = AppModel()
     @State private var sync = SyncManager.shared
+    @State private var shares = ShareManager.shared
 
     var body: some Scene {
         WindowGroup("Rclone", id: "main") {
             ContentView()
                 .environment(model)
                 .environment(sync)
+                .environment(shares)
                 .frame(minWidth: 820, minHeight: 480)
                 .task {
                     QuitGuard.model = model
@@ -42,6 +44,8 @@ struct RcloneGUIApp: App {
                 Divider()
                 Button("Backup Tasks") { MainWindow.openSync?() }
                     .keyboardShortcut("s", modifiers: [.command, .shift])
+                Button("WebDAV Shares") { MainWindow.openShares?() }
+                    .keyboardShortcut("d", modifiers: [.command, .shift])
                 Divider()
                 Button("Quick Look") { model.toggleQuickLook() }
                     .keyboardShortcut("y")
@@ -56,8 +60,14 @@ struct RcloneGUIApp: App {
         }
         .defaultSize(width: 760, height: 600)
 
+        Window("WebDAV Shares", id: "shares") {
+            SharesView()
+                .environment(shares)
+        }
+        .defaultSize(width: 600, height: 520)
+
         MenuBarExtra {
-            MenuBarView().environment(model).environment(sync)
+            MenuBarView().environment(model).environment(sync).environment(shares)
         } label: {
             MenuBarLabel().environment(model).environment(sync)
         }
@@ -105,6 +115,7 @@ enum MainWindow {
     /// Set by a view that lives for the app's lifetime (the menu bar label).
     static var open: (() -> Void)?
     static var openSync: (() -> Void)?
+    static var openShares: (() -> Void)?
 
     static func show() {
         let windows = NSApp.windows.filter { $0.identifier?.rawValue.hasPrefix("main") == true }

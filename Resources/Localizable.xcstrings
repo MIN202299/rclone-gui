@@ -286,6 +286,16 @@
         }
       }
     },
+    "Access": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "访问"
+          }
+        }
+      }
+    },
     "Add Remote": {
       "localizations": {
         "zh-Hans": {
@@ -312,6 +322,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加一个云存储远程以开始使用。"
+          }
+        }
+      }
+    },
+    "Address": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地址"
+          }
+        }
+      }
+    },
+    "Allow other devices on this network": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许本网络中的其他设备访问"
           }
         }
       }
@@ -602,6 +632,16 @@
         }
       }
     },
+    "Choose a port from 1024 to 65535.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择 1024 到 65535 之间的端口。"
+          }
+        }
+      }
+    },
     "Choose a remote from the sidebar.": {
       "localizations": {
         "zh-Hans": {
@@ -832,6 +872,26 @@
         }
       }
     },
+    "Copy": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拷贝"
+          }
+        }
+      }
+    },
+    "Copy Address": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拷贝地址"
+          }
+        }
+      }
+    },
     "Copy Path": {
       "localizations": {
         "zh-Hans": {
@@ -884,6 +944,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法将密码保存到钥匙串。"
+          }
+        }
+      }
+    },
+    "Couldn't start": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法启动"
           }
         }
       }
@@ -958,6 +1028,16 @@
         }
       }
     },
+    "Delete Share": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除共享"
+          }
+        }
+      }
+    },
     "Delete Task": {
       "localizations": {
         "zh-Hans": {
@@ -984,6 +1064,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除所选项目"
+          }
+        }
+      }
+    },
+    "Delete the share “%@”?": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除共享“%@”？"
           }
         }
       }
@@ -1030,6 +1120,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在删除…"
+          }
+        }
+      }
+    },
+    "Devices can play, open and download files, but can't change anything.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设备可以播放、打开和下载文件，但不能做任何修改。"
+          }
+        }
+      }
+    },
+    "Devices using it can no longer connect. The files on the remote are not touched.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在使用它的设备将无法再连接。远程存储上的文件不受影响。"
           }
         }
       }
@@ -1244,6 +1354,16 @@
         }
       }
     },
+    "Encrypted backup, shared decrypted": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加密备份，以解密后的内容共享"
+          }
+        }
+      }
+    },
     "Encryption": {
       "localizations": {
         "zh-Hans": {
@@ -1274,12 +1394,32 @@
         }
       }
     },
+    "Enter a username and password.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请输入用户名和密码。"
+          }
+        }
+      }
+    },
     "Enter the password of this encrypted backup.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "输入这个加密备份的密码。"
+          }
+        }
+      }
+    },
+    "Enter these in the app that connects, along with this Mac's address and the port.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在要连接的 App 中填入这些信息，以及这台 Mac 的地址和端口。"
           }
         }
       }
@@ -1444,6 +1584,16 @@
         }
       }
     },
+    "Folder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件夹"
+          }
+        }
+      }
+    },
     "Folders": {
       "localizations": {
         "zh-Hans": {
@@ -1470,6 +1620,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "通用"
+          }
+        }
+      }
+    },
+    "Generate": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生成"
+          }
+        }
+      }
+    },
+    "Hide": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏"
           }
         }
       }
@@ -1844,6 +2014,16 @@
         }
       }
     },
+    "No WebDAV Shares": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有 WebDAV 共享"
+          }
+        }
+      }
+    },
     "No items": {
       "localizations": {
         "zh-Hans": {
@@ -2034,6 +2214,16 @@
         }
       }
     },
+    "Other devices on this network": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本网络中的其他设备"
+          }
+        }
+      }
+    },
     "Other install options": {
       "localizations": {
         "zh-Hans": {
@@ -2080,6 +2270,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "已暂停"
+          }
+        }
+      }
+    },
+    "Port": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "端口"
+          }
+        }
+      }
+    },
+    "Port %@ is already used by another app.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "端口 %@ 已被其他 App 占用。"
           }
         }
       }
@@ -2136,6 +2346,26 @@
     },
     "Rclone": {
       "shouldTranslate": false
+    },
+    "Read and write": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可读写"
+          }
+        }
+      }
+    },
+    "Read only": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只读"
+          }
+        }
+      }
     },
     "Recommended": {
       "localizations": {
@@ -2317,6 +2547,26 @@
         }
       }
     },
+    "Right-click a folder and choose Share via WebDAV. Media players such as Infuse or VLC, file apps and Finder can then play and open its files over your network without downloading them first.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右键点按文件夹并选择“通过 WebDAV 共享”。之后 Infuse、VLC 等播放器、文件类 App 和访达就能通过网络直接播放和打开其中的文件，无需先下载。"
+          }
+        }
+      }
+    },
+    "Running": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行中"
+          }
+        }
+      }
+    },
     "Runs “brew install rclone”. rclone is then available in Terminal too, and you can update it with “brew upgrade”.": {
       "localizations": {
         "zh-Hans": {
@@ -2407,6 +2657,56 @@
         }
       }
     },
+    "Share": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共享"
+          }
+        }
+      }
+    },
+    "Share This Folder via WebDAV…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通过 WebDAV 共享此文件夹…"
+          }
+        }
+      }
+    },
+    "Share via WebDAV…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通过 WebDAV 共享…"
+          }
+        }
+      }
+    },
+    "Shares run while Rclone is open, including when only its menu bar icon is showing. This Mac must stay awake for other devices to connect.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只要 Rclone 在运行（包括只显示菜单栏图标时），共享就会保持开启。其他设备连接时，这台 Mac 需要保持唤醒。"
+          }
+        }
+      }
+    },
+    "Show": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示"
+          }
+        }
+      }
+    },
     "Show Local Folder in Finder": {
       "localizations": {
         "zh-Hans": {
@@ -2423,6 +2723,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "在访达中显示"
+          }
+        }
+      }
+    },
+    "Sign In": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登录"
           }
         }
       }
@@ -2477,6 +2787,16 @@
         }
       }
     },
+    "Start": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动"
+          }
+        }
+      }
+    },
     "Start Empty": {
       "localizations": {
         "zh-Hans": {
@@ -2487,12 +2807,32 @@
         }
       }
     },
+    "Starting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在启动…"
+          }
+        }
+      }
+    },
     "Stop": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "停止"
+          }
+        }
+      }
+    },
+    "Stopped": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已停止"
           }
         }
       }
@@ -2597,12 +2937,32 @@
         }
       }
     },
+    "This Mac only": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅限这台 Mac"
+          }
+        }
+      }
+    },
     "This app uses the free, open-source rclone tool to talk to your cloud storage. It isn't installed on this Mac yet. Pick one way to get it:": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "本应用通过免费开源的 rclone 工具访问你的云存储。这台 Mac 上尚未安装 rclone。请选择一种方式获取："
+          }
+        }
+      }
+    },
+    "This folder is in an encrypted backup. Devices that connect see its files decrypted. Its key is kept in your keychain, so the share works without unlocking the folder first.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此文件夹位于加密备份中。连接的设备看到的是解密后的文件。密钥保存在你的钥匙串中，因此无需先解锁文件夹，共享也能使用。"
           }
         }
       }
@@ -2767,6 +3127,16 @@
         }
       }
     },
+    "Username": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用户名"
+          }
+        }
+      }
+    },
     "Verifying download…": {
       "localizations": {
         "zh-Hans": {
@@ -2783,6 +3153,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在等待你在浏览器中登录…"
+          }
+        }
+      }
+    },
+    "WebDAV Shares": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WebDAV 共享"
           }
         }
       }
@@ -2936,6 +3316,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "“%@”不可用，暂时使用默认位置。"
+          }
+        }
+      }
+    },
+    "WebDAV Server": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WebDAV 服务"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置…"
+          }
+        }
+      }
+    },
+    "Shared Folders": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共享的文件夹"
+          }
+        }
+      }
+    },
+    "Devices find this folder at the server's address followed by its name, and see it listed at the server's top level.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设备通过服务地址加上文件夹名称访问它，它也会出现在服务的最上层列表中。"
+          }
+        }
+      }
+    },
+    "The share “%@” already has this name.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共享“%@”已使用这个名称。"
+          }
+        }
+      }
+    },
+    "Port %@ is already used by another app. Choose another port in the server settings.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "端口 %@ 已被其他 App 占用。请在服务设置中选择其他端口。"
+          }
+        }
+      }
+    },
+    "The key of the encrypted backup of “%@” is missing. Unlock the folder and share it again.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”所在加密备份的密钥丢失。请解锁该文件夹后重新共享。"
+          }
+        }
+      }
+    },
+    "Devices can also upload, rename and delete files in the shared folders.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设备还可以在共享的文件夹中上传、重命名和删除文件。"
           }
         }
       }

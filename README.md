@@ -54,6 +54,7 @@ xattr -dr com.apple.quarantine /Applications/Rclone.app
   **Unlocking encrypted backups:** opening an encrypted backup folder in the browser shows it locked. **Unlock…** asks for its password (or uses one saved in the keychain by its backup task or an earlier unlock). Unlocked, you browse real file names and open, Quick Look, download, upload, rename or delete files as usual; each file is decrypted only when you use it. **Lock** forgets the key, removes decrypted copies from the file cache, and leaves the folder.
 
   Tasks can run **manually**, **on a schedule** (every 5 minutes to daily) and/or **when local files change** (upload only). They keep running while only the menu bar icon is showing. The Backup Tasks window, the menu bar panel, and a banner above any backed-up folder show each task's last result and live progress, with **Back Up Now**, Stop, Pause and Edit.
+- **WebDAV shares:** right-click a folder and choose **Share via WebDAV…** (or right-click empty space to share the open folder or a whole remote). Media players such as Infuse or VLC, file apps and Finder (Go → Connect to Server) can then play and open its files over your network, reading only the parts they need instead of downloading whole files first. All shares are served by one WebDAV server with one port (8080 by default), one username and a generated password; each shared folder appears at its top level, so a player can add the server once and browse every folder, or point straight at `http://<address>:8080/<folder name>`. Access is **read only** by default; turn that off in the server settings to let devices upload, rename and delete too. The server is visible to other devices on your network by default, or can be limited to this Mac. Folders inside an unlocked **encrypted backup** are shared decrypted: the share keeps the backup's key in your keychain, so it works without unlocking the folder first, and decrypted files are streamed rather than kept in rclone's cache. The **WebDAV Shares** window (⇧⌘D) and the menu bar panel show the server's address, username and password with copy buttons, and each folder's address and Start/Stop. The server runs inside the background rclone (`serve/start` over a `combine` remote), so it stops when the app quits; folders that were shared start again when it opens. Adding or removing a shared folder restarts the server for a moment. While any encrypted folder is shared, files are streamed instead of cached.
 - **Menu bar icon:** a cloud that turns into a sync cloud while jobs are running. Click it to see each job's progress, cancel jobs, or reopen the main window. The app keeps running in the menu bar after you close the window, so transfers continue; clicking the Dock icon brings the window back. Quitting while backups, uploads or downloads are running asks first, and quitting stops them.
 - **Fast on slow-to-connect remotes:** the app keeps one `rclone rcd` running in the background, listening only on 127.0.0.1 with a random password. It stops when the app quits, even if the app is force-quit or crashes, and any left behind by older versions are stopped on the next launch. Folder listings and file fetches reuse its remote connections instead of starting rclone and logging in again each time. If the background rclone can't start, the app falls back to running a separate rclone for each action.
 - **Add Remote wizard** built from `rclone config providers` (all ~70 backends). It shows the required and optional fields, then asks rclone's follow-up questions inside the app, including browser OAuth sign-in for Google Drive, Dropbox, OneDrive and others.
@@ -119,6 +120,7 @@ Running the workflow by hand (Actions → Release → Run workflow) builds a tes
 | ⌘↑ | Enclosing folder |
 | ⌫ | Delete selection (asks first) |
 | ⇧⌘S | Backup Tasks |
+| ⇧⌘D | WebDAV Shares |
 | ⌘, | Settings |
 
 ## Layout
@@ -138,6 +140,8 @@ Sources/RcloneGUI/
   SyncManager.swift       saved backup tasks: running, scheduling, folder watching
   SyncViews.swift         Backup Tasks window, task editor, folder banner
   Crypt.swift             encrypted backups: rclone crypt folders, marker file, keychain passwords
+  WebDAV.swift            WebDAV shares: saved shares, starting/stopping them in the background rclone
+  SharesView.swift        WebDAV Shares window and share editor
   AppLanguage.swift       interface language setting and relaunch
   QuitGuard.swift         asks before quitting while jobs run; stops them on quit
 Resources/AppIcon.icon    Icon Composer document (light + dark)
